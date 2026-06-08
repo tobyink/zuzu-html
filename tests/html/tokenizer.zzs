@@ -1,0 +1,299 @@
+from html/parser import
+	HTMLInputStream,
+	HTMLNamedCharacterReferences,
+	HTMLParseError,
+	HTMLToken,
+	HTMLTokenizer;
+from std/string import chr;
+from test/more import *;
+
+function toks ( String html, String state := "data", last_tag := null ) {
+	return ( new HTMLTokenizer(
+		_input: html,
+		_state: state,
+		_last_start_tag_name: last_tag,
+	) ).tokenize();
+}
+
+function tok ( String html, Number index := 0 ) {
+	return toks(html)[index];
+}
+
+function chars ( String html, String state := "data", last_tag := null ) {
+	let out := "";
+	for ( let token in toks( html, state, last_tag ) ) {
+		out _= token.data() if token.type() eq "Character";
+	}
+	return out;
+}
+
+function error_codes ( HTMLTokenizer tokenizer ) {
+	let codes := [];
+	for ( let error in tokenizer.errors() ) {
+		codes.push(error.code());
+	}
+	return codes;
+}
+
+ok( HTMLTokenizer ≢ null, "HTMLTokenizer export is available" );
+ok( HTMLToken ≢ null, "HTMLToken export is available" );
+ok( HTMLParseError ≢ null, "HTMLParseError export is available" );
+ok( HTMLInputStream ≢ null, "HTMLInputStream export is available" );
+ok(
+	HTMLNamedCharacterReferences ≢ null,
+	"HTMLNamedCharacterReferences export is available",
+);
+is(
+	HTMLNamedCharacterReferences.coverage(),
+	"partial",
+	"named reference table reports partial coverage",
+);
+
+let stream := new HTMLInputStream( _input: "a\r\nb\rc" );
+is( stream.source(), "a\nb\nc", "input stream normalizes CRLF and CR" );
+is( stream.line(), 1, "input stream starts at line one" );
+is( stream.column(), 1, "input stream starts at column one" );
+is( stream.consume(), "a", "input stream consumes first char" );
+is( stream.column(), 2, "input stream advances column" );
+is( stream.consume(), "\n", "input stream consumes normalized newline" );
+is( stream.line(), 2, "input stream advances line after newline" );
+is( stream.column(), 1, "input stream resets column after newline" );
+stream.reconsume();
+is( stream.consume(), "\n", "input stream can reconsume last char" );
+is( stream.peek(1), "b", "input stream peek sees next char" );
+ok( stream.match( "B", true ), "input stream case-insensitive match" );
+
+let plain := toks("hello");
+is( plain.length(), 2, "plain text emits character and EOF tokens" );
+is( plain[0].type(), "Character", "plain text token type" );
+is( plain[0].data(), "hello", "plain text token data" );
+is( plain[1].type(), "EOF", "EOF token emitted" );
+
+let positioned := new HTMLTokenizer( _input: "a\n" _ chr(0) );
+positioned.tokenize();
+is(
+	error_codes(positioned).contains("unexpected-null-character"),
+	true,
+	"null character records parse error",
+);
+is( positioned.errors()[0].line(), 2, "parse error records line" );
+is( positioned.errors()[0].column(), 1, "parse error records column" );
+is( chars("a" _ chr(0) _ "b"), "a" _ chr(65533) _ "b", "null is replaced" );
+
+let start := tok("<DiV A=\"1\" b='two' c=d disabled />");
+is( start.type(), "StartTag", "start tag token emitted" );
+is( start.tagName(), "div", "start tag name lowercases" );
+is( start.getAttribute("a"), "1", "double quoted attr parsed" );
+is( start.getAttribute("b"), "two", "single quoted attr parsed" );
+is( start.getAttribute("c"), "d", "unquoted attr parsed" );
+is( start.getAttribute("disabled"), "", "boolean-style attr parsed" );
+is( start.selfClosing(), true, "self-closing flag parsed" );
+is( start.attributes().length(), 4, "attributes preserve unique entries" );
+like( start.toDebugString(), /StartTag\(div/, "token debug string includes tag" );
+
+let end := tok("</SPAN class=x/>");
+is( end.type(), "EndTag", "end tag token emitted" );
+is( end.tagName(), "span", "end tag name lowercases" );
+is( end.getAttribute("class"), "x", "end tag attrs are exposed" );
+let end_parser := new HTMLTokenizer( _input: "</SPAN class=x/>" );
+end_parser.tokenize();
+ok(
+	error_codes(end_parser).contains("end-tag-with-attributes"),
+	"end tag attrs record parse error",
+);
+ok(
+	error_codes(end_parser).contains("end-tag-with-trailing-solidus"),
+	"end tag trailing solidus records parse error",
+);
+
+let dup_parser := new HTMLTokenizer( _input: "<p a=1 A=2>" );
+let dup := dup_parser.tokenize()[0];
+is( dup.getAttribute("a"), "1", "duplicate attr keeps first value" );
+is( dup.attributes().length(), 1, "duplicate attr discards later value" );
+ok(
+	error_codes(dup_parser).contains("duplicate-attribute"),
+	"duplicate attr records parse error",
+);
+
+let invalid_lt := new HTMLTokenizer( _input: "<" );
+invalid_lt.tokenize();
+ok(
+	error_codes(invalid_lt).contains("eof-before-tag-name"),
+	"bare less-than before EOF records parse error",
+);
+is( chars("<"), "<", "bare less-than emits character" );
+let invalid_end := new HTMLTokenizer( _input: "</" );
+invalid_end.tokenize();
+ok(
+	error_codes(invalid_end).contains("eof-before-tag-name"),
+	"bare end tag before EOF records parse error",
+);
+let bogus_pi := toks("<?x>")[0];
+is( bogus_pi.type(), "Comment", "processing instruction-like markup is bogus comment" );
+is( bogus_pi.data(), "x", "bogus comment data parsed" );
+let invalid_tag := new HTMLTokenizer( _input: "<1" );
+invalid_tag.tokenize();
+ok(
+	error_codes(invalid_tag).contains("invalid-first-character-of-tag-name"),
+	"invalid tag opening records parse error",
+);
+
+is( tok("<!--ok-->").data(), "ok", "normal comment parsed" );
+is( tok("<!---->").data(), "", "empty comment parsed" );
+let abrupt := new HTMLTokenizer( _input: "<!--x--!>" );
+is( abrupt.tokenize()[0].data(), "x", "abrupt comment close emits comment" );
+ok(
+	error_codes(abrupt).contains("abrupt-closing-of-empty-comment"),
+	"abrupt comment close records parse error",
+);
+let eof_comment := new HTMLTokenizer( _input: "<!--x" );
+is( eof_comment.tokenize()[0].data(), "x", "EOF comment emits comment" );
+ok(
+	error_codes(eof_comment).contains("eof-in-comment"),
+	"EOF in comment records parse error",
+);
+let nested_comment := new HTMLTokenizer( _input: "<!--a<!--b-->" );
+nested_comment.tokenize();
+ok(
+	error_codes(nested_comment).contains("nested-comment"),
+	"nested comment opener records parse error",
+);
+
+let doc_type := tok("<!doctype html>");
+is( doc_type.type(), "DOCTYPE", "doctype token emitted" );
+is( doc_type.tagName(), "html", "doctype name lowercases" );
+is( doc_type.forceQuirks(), false, "simple doctype does not force quirks" );
+let public_doctype := tok("<!DOCTYPE html PUBLIC \"pub\" \"sys\">");
+is( public_doctype.publicId(), "pub", "doctype public id parsed" );
+is( public_doctype.systemId(), "sys", "doctype system id parsed" );
+let missing_doctype := new HTMLTokenizer( _input: "<!DOCTYPE>" );
+is(
+	missing_doctype.tokenize()[0].forceQuirks(),
+	true,
+	"missing doctype name forces quirks",
+);
+ok(
+	error_codes(missing_doctype).contains("missing-doctype-name"),
+	"missing doctype name records parse error",
+);
+let bogus_doctype := tok("<!doctype html nope>");
+is( bogus_doctype.forceQuirks(), true, "bogus doctype forces quirks" );
+
+is(
+	chars("&amp; &copy; &#169; &#x80;"),
+	"& " _ chr(169) _ " " _ chr(169) _ " " _ chr(8364),
+	"named, decimal, hex, and C1 references parsed",
+);
+let ref_errors := new HTMLTokenizer( _input: "&amp &#0; &#x110000; &#xD800;" );
+ref_errors.tokenize();
+ok(
+	error_codes(ref_errors).contains(
+		"missing-semicolon-after-character-reference",
+	),
+	"missing semicolon in reference records parse error",
+);
+ok(
+	error_codes(ref_errors).contains("null-character-reference"),
+	"null numeric reference records parse error",
+);
+ok(
+	error_codes(ref_errors).contains(
+		"character-reference-outside-unicode-range",
+	),
+	"out-of-range numeric reference records parse error",
+);
+ok(
+	error_codes(ref_errors).contains("surrogate-character-reference"),
+	"surrogate numeric reference records parse error",
+);
+is(
+	chars("&madeup;"),
+	"&madeup;",
+	"unknown named character reference is left as text",
+);
+let attr_refs := tok("<p title=\"Tom &amp Jerry &notin;\">");
+is(
+	attr_refs.getAttribute("title"),
+	"Tom & Jerry &notin;",
+	"attribute references follow attribute-sensitive behaviour",
+);
+
+is(
+	chars( "a&amp;</textarea>", "rcdata", "textarea" ),
+	"a&",
+	"RCDATA expands character references before matching end tag",
+);
+is(
+	toks( "a&amp;</textarea>", "rcdata", "textarea" )[1].tagName(),
+	"textarea",
+	"RCDATA emits appropriate end tag",
+);
+is(
+	chars( "a</div>b</textarea>", "rcdata", "textarea" ),
+	"a</div>b",
+	"RCDATA treats inappropriate end tag as text",
+);
+is(
+	chars( "a&amp;</style>", "rawtext", "style" ),
+	"a&amp;",
+	"RAWTEXT does not expand character references",
+);
+is(
+	toks( "a&amp;</style>", "rawtext", "style" )[1].tagName(),
+	"style",
+	"RAWTEXT emits appropriate end tag",
+);
+is(
+	chars( "if (a<!--b) {}</script>", "script_data", "script" ),
+	"if (a<!--b) {}",
+	"script data preserves comment-like content as text",
+);
+is(
+	toks( "if (a<!--b) {}</script>", "script_data", "script" )[1].tagName(),
+	"script",
+	"script data emits appropriate end tag",
+);
+is(
+	chars( "<b>&amp;</b>", "plaintext" ),
+	"<b>&amp;</b>",
+	"PLAINTEXT emits all remaining input as character data",
+);
+
+let eof_raw := new HTMLTokenizer( _input: "unterminated", _state: "rawtext" );
+eof_raw.setLastStartTagName("style");
+eof_raw.tokenize();
+ok(
+	error_codes(eof_raw).contains("eof-in-rawtext"),
+	"EOF in RAWTEXT records state-specific error",
+);
+let eof_script := new HTMLTokenizer(
+	_input: "unterminated",
+	_state: "script data",
+	_last_start_tag_name: "script",
+);
+eof_script.tokenize();
+ok(
+	error_codes(eof_script).contains("eof-in-script_data"),
+	"EOF in script data records state-specific error",
+);
+
+let reusable := new HTMLTokenizer( _input: "<p>x</p>" );
+let first_run := reusable.tokenize();
+let second_run := reusable.tokenize();
+is( first_run.length(), second_run.length(), "tokenize is repeatable" );
+is( reusable.nextToken(), first_run[0], "nextToken returns queued first token" );
+is( reusable.nextToken(), first_run[1], "nextToken advances through queue" );
+reusable.reset("<br>", "data");
+is( reusable.nextToken().tagName(), "br", "reset replaces input" );
+reusable.setState("plaintext");
+is( reusable.state(), "plaintext", "setState normalizes state name" );
+reusable.setLastStartTagName("TEXTAREA");
+is(
+	reusable.lastStartTagName(),
+	"textarea",
+	"last start tag name lowercases",
+);
+reusable.reset( "plain", "rcdata" );
+is( reusable.lastStartTagName(), null, "reset clears last start tag name" );
+
+done_testing();

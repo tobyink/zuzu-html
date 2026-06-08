@@ -1,0 +1,1215 @@
+=encoding utf8
+
+=head1 NAME
+
+html/tokenizer - HTML input stream and tokenizer.
+
+=head1 SYNOPSIS
+
+  from html/tokenizer import HTMLTokenizer;
+
+  let tokenizer := new HTMLTokenizer( _input: "<p title='x'>&amp;</p>" );
+  let tokens := tokenizer.tokenize();
+
+=head1 DESCRIPTION
+
+This module implements the Phase 2 tokenizer layer for C<html/parser>.
+It accepts already-decoded ZuzuScript strings, normalizes line endings,
+tracks source position, emits HTML tokenizer tokens, and records
+non-fatal parse errors with line, column, offset, and tokenizer state.
+
+It intentionally does not build a DOM tree. C<html/parser> re-exports
+these classes, but C<HTML.parse> and C<HTMLParser.parse> remain
+document-parser placeholders until the tree-builder phases are
+implemented.
+
+=head1 CHARACTER REFERENCES
+
+Numeric decimal and hexadecimal references are implemented, including
+HTML replacement handling for null, surrogate, out-of-range, and C1
+Windows-1252 values. The named-reference table is deliberately partial
+in Phase 2 and covers the common entities needed by the focused
+tokenizer suite: C<amp>, C<lt>, C<gt>, C<quot>, C<apos>, C<nbsp>,
+C<copy>, C<reg>, and C<not>, with their semicolon forms and the legacy
+no-semicolon forms used by HTML tokenization.
+
+=head1 NON-GOALS
+
+There is no tree construction, insertion-mode handling, DOM document
+output, html5lib C<.dat> harness, full CSS selector support, or full
+WHATWG named-character-reference table in this phase.
+
+=head1 COPYRIGHT AND LICENCE
+
+B<< html/tokenizer >> is copyright Toby Inkster.
+
+It is free software; you may redistribute it and/or modify it under
+the terms of either the Artistic License 1.0 or the GNU General Public
+License version 2.
+
+=cut
+
+from std/string import chr, index, join, ord, replace, substr, trim;
+
+function _html_tok_string ( value ) {
+	return value ≡ null ? "" : "" _ value;
+}
+
+function _html_tok_bool ( value ) {
+	return value ? true : false;
+}
+
+function _html_tok_lc ( value ) {
+	return lc(_html_tok_string(value));
+}
+
+function _html_tok_state_name ( value ) {
+	let state := _html_tok_lc(value ≡ null ? "data" : value);
+	state := replace( state, " ", "_", "g" );
+	state := replace( state, "-", "_", "g" );
+	return state;
+}
+
+function _html_tok_copy_attrs ( Array attrs ) {
+	let out := [];
+	for ( let attr in attrs ) {
+		out.push( {
+			name: attr{name},
+			value: attr{value},
+		} );
+	}
+	return out;
+}
+
+function _html_tok_is_space ( String ch ) {
+	return ch eq " " or ch eq "\n" or ch eq "\t" or ch eq chr(12);
+}
+
+function _html_tok_is_alpha ( String ch ) {
+	return ch ~ /^[A-Za-z]$/;
+}
+
+function _html_tok_is_digit ( String ch ) {
+	return ch ~ /^[0-9]$/;
+}
+
+function _html_tok_is_hex_digit ( String ch ) {
+	return ch ~ /^[0-9A-Fa-f]$/;
+}
+
+function _html_tok_is_alnum ( String ch ) {
+	return ch ~ /^[0-9A-Za-z]$/;
+}
+
+function _html_tok_ascii_lower_char ( String ch ) {
+	return _html_tok_is_alpha(ch) ? lc(ch) : ch;
+}
+
+function _html_tok_hex_value ( String ch ) {
+	return index( "0123456789abcdef", lc(ch) );
+}
+
+function _html_tok_parse_int ( String text, Number base ) {
+	let n := 0;
+	let i := 0;
+	while ( i < length text ) {
+		let digit := base == 16
+			? _html_tok_hex_value(substr( text, i, 1 ))
+			: index( "0123456789", substr( text, i, 1 ) );
+		return null if digit < 0 or digit >= base;
+		n := n * base + digit;
+		i++;
+	}
+	return n;
+}
+
+function _html_tok_control_replacement ( Number code ) {
+	switch ( code: == ) {
+		case 128: return 8364;
+		case 130: return 8218;
+		case 131: return 402;
+		case 132: return 8222;
+		case 133: return 8230;
+		case 134: return 8224;
+		case 135: return 8225;
+		case 136: return 710;
+		case 137: return 8240;
+		case 138: return 352;
+		case 139: return 8249;
+		case 140: return 338;
+		case 142: return 381;
+		case 145: return 8216;
+		case 146: return 8217;
+		case 147: return 8220;
+		case 148: return 8221;
+		case 149: return 8226;
+		case 150: return 8211;
+		case 151: return 8212;
+		case 152: return 732;
+		case 153: return 8482;
+		case 154: return 353;
+		case 155: return 8250;
+		case 156: return 339;
+		case 158: return 382;
+		case 159: return 376;
+	}
+	return null;
+}
+
+function _html_tok_named_references () {
+	return {
+		"amp": "&",
+		"amp;": "&",
+		"apos": "'",
+		"apos;": "'",
+		"copy": chr(169),
+		"copy;": chr(169),
+		"gt": ">",
+		"gt;": ">",
+		"lt": "<",
+		"lt;": "<",
+		"nbsp": chr(160),
+		"nbsp;": chr(160),
+		"not": chr(172),
+		"not;": chr(172),
+		"quot": "\"",
+		"quot;": "\"",
+		"reg": chr(174),
+		"reg;": chr(174),
+	};
+}
+
+function _html_tok_named_reference_keys () {
+	return [
+		"apos;",
+		"copy;",
+		"nbsp;",
+		"quot;",
+		"amp;",
+		"not;",
+		"reg;",
+		"gt;",
+		"lt;",
+		"apos",
+		"copy",
+		"nbsp",
+		"quot",
+		"amp",
+		"not",
+		"reg",
+		"gt",
+		"lt",
+	];
+}
+
+class HTMLNamedCharacterReferences {
+	static method table () {
+		return _html_tok_named_references();
+	}
+
+	static method get ( String name ) {
+		let table := _html_tok_named_references();
+		return table.exists(name) ? table.get(name) : null;
+	}
+
+	static method isComplete () {
+		return false;
+	}
+
+	static method coverage () {
+		return "partial";
+	}
+}
+
+class HTMLParseError {
+	let String _code := "";
+	let String _message := "";
+	let Number _line := 1;
+	let Number _column := 1;
+	let Number _offset := 0;
+	let String _state := "data";
+
+	method code () {
+		return _code;
+	}
+
+	method message () {
+		return _message;
+	}
+
+	method line () {
+		return _line;
+	}
+
+	method column () {
+		return _column;
+	}
+
+	method offset () {
+		return _offset;
+	}
+
+	method state () {
+		return _state;
+	}
+
+	method to_String () {
+		return _code _ " at line " _ _line _ ", column "
+			_ _column _ " in " _ _state;
+	}
+}
+
+class HTMLToken {
+	let String _type := "";
+	let String _data := "";
+	let String _tag_name := "";
+	let Array _attributes := [];
+	let Boolean _self_closing := false;
+	let _public_id := null;
+	let _system_id := null;
+	let Boolean _force_quirks := false;
+
+	method __build__ () {
+		_attributes := [] if _attributes ≡ null;
+		_tag_name := _html_tok_lc(_tag_name) if _tag_name ≢ null;
+		_data := _html_tok_string(_data) if _data ≢ null;
+	}
+
+	method type () {
+		return _type;
+	}
+
+	method data () {
+		return _data;
+	}
+
+	method tagName () {
+		return _tag_name;
+	}
+
+	method attributes () {
+		return _html_tok_copy_attrs(_attributes);
+	}
+
+	method getAttribute ( String name ) {
+		let wanted := _html_tok_lc(name);
+		for ( let attr in _attributes ) {
+			return attr{value} if attr{name} eq wanted;
+		}
+		return null;
+	}
+
+	method hasAttribute ( String name ) {
+		let wanted := _html_tok_lc(name);
+		for ( let attr in _attributes ) {
+			return true if attr{name} eq wanted;
+		}
+		return false;
+	}
+
+	method selfClosing () {
+		return _self_closing;
+	}
+
+	method publicId () {
+		return _public_id;
+	}
+
+	method systemId () {
+		return _system_id;
+	}
+
+	method forceQuirks () {
+		return _force_quirks;
+	}
+
+	method _add_attribute ( String name, String value ) {
+		_attributes.push( {
+			name: _html_tok_lc(name),
+			value: _html_tok_string(value),
+		} );
+		return self;
+	}
+
+	method _set_self_closing ( Boolean value ) {
+		_self_closing := value;
+		return self;
+	}
+
+	method toDebugString () {
+		if ( _type eq "Character" ) {
+			return "Character(" _ _data _ ")";
+		}
+		if ( _type eq "Comment" ) {
+			return "Comment(" _ _data _ ")";
+		}
+		if ( _type eq "DOCTYPE" ) {
+			return "DOCTYPE(" _ _tag_name _ ")";
+		}
+		if ( _type eq "StartTag" or _type eq "EndTag" ) {
+			let attrs := [];
+			for ( let attr in _attributes ) {
+				attrs.push( attr{name} _ "=" _ attr{value} );
+			}
+			return _type _ "(" _ _tag_name _ (
+				attrs.length() ? " " _ join( " ", attrs ) : ""
+			) _ (_self_closing ? " /" : "") _ ")";
+		}
+		return _type;
+	}
+}
+
+class HTMLInputStream {
+	let String _input := "";
+	let String _source := "";
+	let Number _offset := 0;
+	let Number _line := 1;
+	let Number _column := 1;
+	let Number _last_offset := 0;
+	let Number _last_line := 1;
+	let Number _last_column := 1;
+	let String _last_char := "";
+	let Boolean _reconsume := false;
+
+	method __build__ () {
+		self.reset(_input);
+	}
+
+	method _normalize ( String input ) {
+		let out := replace( input, "\r\n", "\n", "g" );
+		out := replace( out, "\r", "\n", "g" );
+		return out;
+	}
+
+	method reset ( String input ) {
+		_input := input;
+		_source := self._normalize(_html_tok_string(input));
+		_offset := 0;
+		_line := 1;
+		_column := 1;
+		_last_offset := 0;
+		_last_line := 1;
+		_last_column := 1;
+		_last_char := "";
+		_reconsume := false;
+		return self;
+	}
+
+	method source () {
+		return _source;
+	}
+
+	method offset () {
+		return _offset;
+	}
+
+	method line () {
+		return _line;
+	}
+
+	method column () {
+		return _column;
+	}
+
+	method lastOffset () {
+		return _last_offset;
+	}
+
+	method lastLine () {
+		return _last_line;
+	}
+
+	method lastColumn () {
+		return _last_column;
+	}
+
+	method eof () {
+		return _offset >= length _source and not _reconsume;
+	}
+
+	method consume () {
+		if ( _reconsume ) {
+			_reconsume := false;
+			return _last_char;
+		}
+		return null if _offset >= length _source;
+
+		let ch := substr( _source, _offset, 1 );
+		_last_offset := _offset;
+		_last_line := _line;
+		_last_column := _column;
+		_last_char := ch;
+		_offset++;
+		if ( ch eq "\n" ) {
+			_line++;
+			_column := 1;
+		}
+		else {
+			_column++;
+		}
+		return ch;
+	}
+
+	method reconsume () {
+		_reconsume := true if _last_char ne "";
+		return self;
+	}
+
+	method peek ( Number n := 1 ) {
+		return "" if _offset >= length _source;
+		return substr( _source, _offset, n );
+	}
+
+	method match ( String text, Boolean case_insensitive := false ) {
+		let got := self.peek(length text);
+		return case_insensitive
+			? lc(got) eq lc(text)
+			: got eq text;
+	}
+}
+
+class HTMLTokenizer {
+	let String _input := "";
+	let String _state := "data";
+	let _last_start_tag_name := null;
+	let _stream := null;
+	let Array _tokens := [];
+	let Array _errors := [];
+	let Number _read_index := 0;
+	let Boolean _tokenized := false;
+
+	method __build__ () {
+		self.reset( _input, _state );
+		_last_start_tag_name := _html_tok_lc(_last_start_tag_name)
+			unless _last_start_tag_name ≡ null;
+	}
+
+	method reset ( String input, String state := "data" ) {
+		_input := _html_tok_string(input);
+		_state := _html_tok_state_name(state);
+		_stream := new HTMLInputStream( _input: _input );
+		_tokens := [];
+		_errors := [];
+		_read_index := 0;
+		_tokenized := false;
+		_last_start_tag_name := null;
+		return self;
+	}
+
+	method state () {
+		return _state;
+	}
+
+	method setState ( String state ) {
+		_state := _html_tok_state_name(state);
+		return self;
+	}
+
+	method setLastStartTagName ( name ) {
+		_last_start_tag_name := name ≡ null ? null : _html_tok_lc(name);
+		return self;
+	}
+
+	method lastStartTagName () {
+		return _last_start_tag_name;
+	}
+
+	method errors () {
+		let out := [];
+		for ( let error in _errors ) {
+			out.push(error);
+		}
+		return out;
+	}
+
+	method tokenize () {
+		self._run() unless _tokenized;
+		let out := [];
+		for ( let token in _tokens ) {
+			out.push(token);
+		}
+		return out;
+	}
+
+	method nextToken () {
+		self._run() unless _tokenized;
+		return null if _read_index >= _tokens.length();
+		let token := _tokens[_read_index];
+		_read_index++;
+		return token;
+	}
+
+	method _run () {
+		while ( not _stream.eof() ) {
+			if ( _state eq "data" ) {
+				self._tokenize_data();
+			}
+			else if ( _state eq "rcdata" ) {
+				self._tokenize_text_mode( "rcdata", true );
+			}
+			else if ( _state eq "rawtext" ) {
+				self._tokenize_text_mode( "rawtext", false );
+			}
+			else if ( _state eq "script_data" ) {
+				self._tokenize_text_mode( "script_data", false );
+			}
+			else if ( _state eq "plaintext" ) {
+				self._tokenize_plaintext();
+			}
+			else {
+				self._parse_error(
+					"unsupported-tokenizer-state",
+					"Unsupported tokenizer state " _ _state,
+				);
+				self.setState("data");
+			}
+		}
+		if ( _state ne "data" and _state ne "plaintext" ) {
+			self._parse_error(
+				"eof-in-" _ _state,
+				"End of file in " _ _state _ " state",
+			);
+		}
+		self._emit(new HTMLToken( _type: "EOF" ));
+		_tokenized := true;
+		return self;
+	}
+
+	method _emit ( HTMLToken token ) {
+		_tokens.push(token);
+		return token;
+	}
+
+	method _emit_character ( String data ) {
+		return null if data eq "";
+		return self._emit(new HTMLToken( _type: "Character", _data: data ));
+	}
+
+	method _parse_error ( String code, String message ) {
+		_errors.push(
+			new HTMLParseError(
+				_code: code,
+				_message: message,
+				_line: _stream.line(),
+				_column: _stream.column(),
+				_offset: _stream.offset(),
+				_state: _state,
+			),
+		);
+		return self;
+	}
+
+	method _parse_error_at_last ( String code, String message ) {
+		_errors.push(
+			new HTMLParseError(
+				_code: code,
+				_message: message,
+				_line: _stream.lastLine(),
+				_column: _stream.lastColumn(),
+				_offset: _stream.lastOffset(),
+				_state: _state,
+			),
+		);
+		return self;
+	}
+
+	method _consume_string ( String text ) {
+		let i := 0;
+		while ( i < length text ) {
+			_stream.consume();
+			i++;
+		}
+		return text;
+	}
+
+	method _starts_with ( String text, Boolean ci := false ) {
+		return _stream.match( text, ci );
+	}
+
+	method _skip_spaces () {
+		while ( not _stream.eof() and _html_tok_is_space(_stream.peek()) ) {
+			_stream.consume();
+		}
+		return self;
+	}
+
+	method _tokenize_data () {
+		let text := "";
+		while ( not _stream.eof() ) {
+			if ( self._starts_with("<") or self._starts_with("&") ) {
+				last;
+			}
+			let ch := _stream.consume();
+			if ( ch eq chr(0) ) {
+				self._parse_error_at_last(
+					"unexpected-null-character",
+					"Unexpected null character",
+				);
+				text _= chr(65533);
+			}
+			else {
+				text _= ch;
+			}
+		}
+		if ( text ne "" ) {
+			return self._emit_character(text);
+		}
+		if ( _stream.eof() ) {
+			return null;
+		}
+		if ( self._starts_with("&") ) {
+			_stream.consume();
+			return self._emit_character(self._consume_character_reference(false));
+		}
+		return self._consume_markup();
+	}
+
+	method _tokenize_plaintext () {
+		let text := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.consume();
+			if ( ch eq chr(0) ) {
+				self._parse_error_at_last(
+					"unexpected-null-character",
+					"Unexpected null character",
+				);
+				text _= chr(65533);
+			}
+			else {
+				text _= ch;
+			}
+		}
+		self._emit_character(text);
+		return self;
+	}
+
+	method _appropriate_end_tag_name () {
+		return _last_start_tag_name ≢ null
+			? _last_start_tag_name
+			: (
+				_state eq "rcdata" ? "textarea"
+				: ( _state eq "rawtext" ? "style" : "script" )
+			);
+	}
+
+	method _tokenize_text_mode ( String mode, Boolean expand_refs ) {
+		let text := "";
+		let tag := self._appropriate_end_tag_name();
+		while ( not _stream.eof() ) {
+			if (
+				tag ne "" and
+				self._starts_with("</" _ tag, true) and
+				self._text_end_tag_follows(tag)
+			) {
+				last;
+			}
+			if ( expand_refs and self._starts_with("&") ) {
+				_stream.consume();
+				text _= self._consume_character_reference(false);
+			}
+			else {
+				let ch := _stream.consume();
+				if ( ch eq chr(0) ) {
+					self._parse_error_at_last(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+				}
+				else {
+					text _= ch;
+				}
+			}
+		}
+		self._emit_character(text);
+		if ( not _stream.eof() ) {
+			self._consume_markup();
+		}
+		return self;
+	}
+
+	method _text_end_tag_follows ( String tag ) {
+		let probe := _stream.peek(2 + length tag + 1);
+		let after := substr( probe, 2 + length tag, 1 );
+		return after eq "" or after eq ">" or _html_tok_is_space(after)
+			or after eq "/";
+	}
+
+	method _consume_markup () {
+		_stream.consume(); // <
+		if ( _stream.eof() ) {
+			self._parse_error_at_last(
+				"eof-before-tag-name",
+				"EOF before tag name",
+			);
+			return self._emit_character("<");
+		}
+		if ( self._starts_with("!--") ) {
+			self._consume_string("!--");
+			return self._parse_comment();
+		}
+		if ( self._starts_with("!DOCTYPE", true) ) {
+			self._consume_string(substr( _stream.peek(8), 0, 8 ));
+			return self._parse_doctype();
+		}
+		if ( self._starts_with("!") ) {
+			_stream.consume();
+			self._parse_error(
+				"incorrectly-opened-comment",
+				"Markup declaration is not comment or doctype",
+			);
+			return self._parse_bogus_comment();
+		}
+		if ( self._starts_with("?") ) {
+			_stream.consume();
+			self._parse_error(
+				"unexpected-question-mark-instead-of-tag-name",
+				"Unexpected question mark instead of tag name",
+			);
+			return self._parse_bogus_comment();
+		}
+		if ( self._starts_with("/") ) {
+			_stream.consume();
+			return self._parse_end_tag();
+		}
+		if ( _html_tok_is_alpha(_stream.peek()) ) {
+			return self._parse_start_tag();
+		}
+		self._parse_error(
+			"invalid-first-character-of-tag-name",
+			"Invalid first character of tag name",
+		);
+		return self._emit_character("<");
+	}
+
+	method _parse_tag_name () {
+		let name := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.peek();
+			last if _html_tok_is_space(ch) or ch eq "/" or ch eq ">";
+			if ( ch eq chr(0) ) {
+				self._parse_error(
+					"unexpected-null-character",
+					"Unexpected null in tag name",
+				);
+				name _= chr(65533);
+				_stream.consume();
+			}
+			else {
+				name _= _html_tok_ascii_lower_char(_stream.consume());
+			}
+		}
+		return name;
+	}
+
+	method _parse_start_tag () {
+		let name := self._parse_tag_name();
+		let token := new HTMLToken(
+			_type: "StartTag",
+			_tag_name: name,
+			_attributes: [],
+		);
+		_last_start_tag_name := name;
+		self._parse_attributes( token, false );
+		return self._emit(token);
+	}
+
+	method _parse_end_tag () {
+		if ( _stream.eof() ) {
+			self._parse_error(
+				"eof-before-tag-name",
+				"EOF before end tag name",
+			);
+			return self._emit_character("</");
+		}
+		if ( not _html_tok_is_alpha(_stream.peek()) ) {
+			self._parse_error(
+				"invalid-first-character-of-tag-name",
+				"Invalid first character of end tag name",
+			);
+			return self._parse_bogus_comment();
+		}
+		let name := self._parse_tag_name();
+		let token := new HTMLToken(
+			_type: "EndTag",
+			_tag_name: name,
+			_attributes: [],
+		);
+		self._parse_attributes( token, true );
+		return self._emit(token);
+	}
+
+	method _parse_attributes ( HTMLToken token, Boolean end_tag ) {
+		while ( not _stream.eof() ) {
+			self._skip_spaces();
+			last if _stream.eof();
+			let ch := _stream.peek();
+			if ( ch eq ">" ) {
+				_stream.consume();
+				return self;
+			}
+			if ( ch eq "/" ) {
+				_stream.consume();
+				if ( _stream.peek() eq ">" ) {
+					_stream.consume();
+					if ( end_tag ) {
+						self._parse_error(
+							"end-tag-with-trailing-solidus",
+							"End tag has trailing solidus",
+						);
+					}
+					else {
+						token._set_self_closing(true);
+					}
+					return self;
+				}
+				self._parse_error(
+					"unexpected-solidus-in-tag",
+					"Unexpected solidus in tag",
+				);
+			}
+			let name := self._parse_attribute_name();
+			last if name eq "";
+			let value := "";
+			self._skip_spaces();
+			if ( _stream.peek() eq "=" ) {
+				_stream.consume();
+				self._skip_spaces();
+				value := self._parse_attribute_value();
+			}
+			if ( token.hasAttribute(name) ) {
+				self._parse_error(
+					"duplicate-attribute",
+					"Duplicate attribute " _ name,
+				);
+			}
+			else if ( end_tag ) {
+				self._parse_error(
+					"end-tag-with-attributes",
+					"End tag has attributes",
+				);
+				token._add_attribute( name, value );
+			}
+			else {
+				token._add_attribute( name, value );
+			}
+		}
+		self._parse_error(
+			"eof-in-tag",
+			"EOF in tag",
+		);
+		return self;
+	}
+
+	method _parse_attribute_name () {
+		let name := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.peek();
+			last if _html_tok_is_space(ch) or ch eq "/" or ch eq ">"
+				or ch eq "=";
+			name _= _html_tok_ascii_lower_char(_stream.consume());
+		}
+		return name;
+	}
+
+	method _parse_attribute_value () {
+		return "" if _stream.eof();
+		let quote := _stream.peek();
+		if ( quote eq "\"" or quote eq "'" ) {
+			_stream.consume();
+			let value := "";
+			while ( not _stream.eof() ) {
+				let ch := _stream.consume();
+				return value if ch eq quote;
+				if ( ch eq "&" ) {
+					value _= self._consume_character_reference(true);
+				}
+				else if ( ch eq chr(0) ) {
+					self._parse_error_at_last(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					value _= chr(65533);
+				}
+				else {
+					value _= ch;
+				}
+			}
+			self._parse_error(
+				"eof-in-attribute-value",
+				"EOF in quoted attribute value",
+			);
+			return value;
+		}
+		let value := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.peek();
+			last if _html_tok_is_space(ch) or ch eq ">";
+			last if ch eq "/" and _stream.peek(2) eq "/>";
+			if ( ch eq "&" ) {
+				_stream.consume();
+				value _= self._consume_character_reference(true);
+			}
+			else {
+				value _= _stream.consume();
+			}
+		}
+		return value;
+	}
+
+	method _parse_comment () {
+		let data := "";
+		while ( not _stream.eof() ) {
+			if ( self._starts_with("-->") ) {
+				self._consume_string("-->");
+				return self._emit(new HTMLToken(
+					_type: "Comment",
+					_data: data,
+				));
+			}
+			if ( self._starts_with("--!>") ) {
+				self._parse_error(
+					"abrupt-closing-of-empty-comment",
+					"Abrupt comment close",
+				);
+				self._consume_string("--!>");
+				return self._emit(new HTMLToken(
+					_type: "Comment",
+					_data: data,
+				));
+			}
+			if ( self._starts_with("<!--") ) {
+				self._parse_error(
+					"nested-comment",
+					"Nested comment opening",
+				);
+			}
+			data _= _stream.consume();
+		}
+		self._parse_error(
+			"eof-in-comment",
+			"EOF in comment",
+		);
+		return self._emit(new HTMLToken(
+			_type: "Comment",
+			_data: data,
+		));
+	}
+
+	method _parse_bogus_comment () {
+		let data := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.consume();
+			last if ch eq ">";
+			data _= ch;
+		}
+		return self._emit(new HTMLToken(
+			_type: "Comment",
+			_data: data,
+		));
+	}
+
+	method _parse_doctype () {
+		self._skip_spaces();
+		if ( _stream.eof() or _stream.peek() eq ">" ) {
+			self._parse_error(
+				"missing-doctype-name",
+				"Missing doctype name",
+			);
+			_stream.consume() if _stream.peek() eq ">";
+			return self._emit(new HTMLToken(
+				_type: "DOCTYPE",
+				_tag_name: "",
+				_force_quirks: true,
+			));
+		}
+		let name := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.peek();
+			last if _html_tok_is_space(ch) or ch eq ">";
+			name _= _html_tok_ascii_lower_char(_stream.consume());
+		}
+		self._skip_spaces();
+		let public_id := null;
+		let system_id := null;
+		let force := false;
+		if ( self._starts_with("PUBLIC", true) ) {
+			self._consume_string(substr( _stream.peek(6), 0, 6 ));
+			self._skip_spaces();
+			public_id := self._parse_doctype_quoted();
+			if ( public_id ≡ null ) {
+				self._parse_error(
+					"missing-doctype-public-identifier",
+					"Missing doctype public identifier",
+				);
+				force := true;
+			}
+			self._skip_spaces();
+			system_id := self._parse_doctype_quoted();
+		}
+		else if ( self._starts_with("SYSTEM", true) ) {
+			self._consume_string(substr( _stream.peek(6), 0, 6 ));
+			self._skip_spaces();
+			system_id := self._parse_doctype_quoted();
+			if ( system_id ≡ null ) {
+				self._parse_error(
+					"missing-doctype-system-identifier",
+					"Missing doctype system identifier",
+				);
+				force := true;
+			}
+		}
+		else if ( _stream.peek() ne ">" and not _stream.eof() ) {
+			self._parse_error(
+				"invalid-character-sequence-after-doctype-name",
+				"Invalid text after doctype name",
+			);
+			force := true;
+		}
+		while ( not _stream.eof() and _stream.peek() ne ">" ) {
+			_stream.consume();
+		}
+		if ( _stream.peek() eq ">" ) {
+			_stream.consume();
+		}
+		else {
+			self._parse_error(
+				"eof-in-doctype",
+				"EOF in doctype",
+			);
+			force := true;
+		}
+		return self._emit(new HTMLToken(
+			_type: "DOCTYPE",
+			_tag_name: name,
+			_public_id: public_id,
+			_system_id: system_id,
+			_force_quirks: force,
+		));
+	}
+
+	method _parse_doctype_quoted () {
+		return null if _stream.eof();
+		let quote := _stream.peek();
+		return null unless quote eq "\"" or quote eq "'";
+		_stream.consume();
+		let value := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.consume();
+			return value if ch eq quote;
+			value _= ch;
+		}
+		self._parse_error(
+			"eof-in-doctype",
+			"EOF in doctype identifier",
+		);
+		return value;
+	}
+
+	method _consume_character_reference ( Boolean in_attribute ) {
+		if ( _stream.eof() ) {
+			return "&";
+		}
+		if ( _stream.peek() eq "#" ) {
+			_stream.consume();
+			return self._consume_numeric_character_reference();
+		}
+		return self._consume_named_character_reference(in_attribute);
+	}
+
+	method _consume_named_character_reference ( Boolean in_attribute ) {
+		let table := _html_tok_named_references();
+		for ( let key in _html_tok_named_reference_keys() ) {
+			if ( _stream.match( key, false ) ) {
+				let has_semicolon := substr( key, length key - 1, 1 ) eq ";";
+				let after := _stream.peek(length key + 1);
+				after := substr( after, length key, 1 );
+				if (
+					in_attribute and
+					not has_semicolon and
+					(_html_tok_is_alnum(after) or after eq "=")
+				) {
+					next;
+				}
+				self._consume_string(key);
+				if ( not has_semicolon ) {
+					self._parse_error(
+						"missing-semicolon-after-character-reference",
+						"Missing semicolon after named character reference",
+					);
+				}
+				return table.get(key);
+			}
+		}
+		if ( _html_tok_is_alnum(_stream.peek()) ) {
+			self._parse_error(
+				"unknown-named-character-reference",
+				"Unknown named character reference",
+			);
+		}
+		return "&";
+	}
+
+	method _consume_numeric_character_reference () {
+		let base := 10;
+		if ( _stream.peek() eq "x" or _stream.peek() eq "X" ) {
+			base := 16;
+			_stream.consume();
+		}
+		let digits := "";
+		while ( not _stream.eof() ) {
+			let ch := _stream.peek();
+			last unless base == 16
+				? _html_tok_is_hex_digit(ch)
+				: _html_tok_is_digit(ch);
+			digits _= _stream.consume();
+		}
+		if ( digits eq "" ) {
+			self._parse_error(
+				"absence-of-digits-in-numeric-character-reference",
+				"No digits in numeric character reference",
+			);
+			return base == 16 ? "&#x" : "&#";
+		}
+		if ( _stream.peek() eq ";" ) {
+			_stream.consume();
+		}
+		else {
+			self._parse_error(
+				"missing-semicolon-after-character-reference",
+				"Missing semicolon after numeric character reference",
+			);
+		}
+		let code := _html_tok_parse_int( digits, base );
+		if ( code == 0 ) {
+			self._parse_error(
+				"null-character-reference",
+				"Null character reference",
+			);
+			return chr(65533);
+		}
+		if ( code > 1114111 ) {
+			self._parse_error(
+				"character-reference-outside-unicode-range",
+				"Character reference outside Unicode range",
+			);
+			return chr(65533);
+		}
+		if ( code >= 55296 and code <= 57343 ) {
+			self._parse_error(
+				"surrogate-character-reference",
+				"Surrogate character reference",
+			);
+			return chr(65533);
+		}
+		let replacement := _html_tok_control_replacement(code);
+		if ( replacement ≢ null ) {
+			self._parse_error(
+				"control-character-reference",
+				"Control character reference",
+			);
+			return chr(replacement);
+		}
+		return chr(code);
+	}
+}

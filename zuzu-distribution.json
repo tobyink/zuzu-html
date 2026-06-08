@@ -6,5 +6,7 @@
 	"license": "Artistic-1.0 OR GPL-2.0-or-later",
 	"status": "unstable",
 	"abstract": "HTML5 parser and DOM-like tree classes",
-	"dependencies": {}
+	"dependencies": {
+		"std/string": "0"
+	}
 }

@@ -16,9 +16,10 @@ This module is the planned main entry point for a ZuzuScript
 implementation of the HTML parsing algorithm defined in chapter 13 of
 the WHATWG HTML specification.
 
-The distribution currently contains only a scaffold. Parser methods
-exist so callers and tests can agree on the intended API, but they throw
-clear not-implemented errors until the parser phases in
+The distribution currently contains the Phase 1 DOM core and the Phase
+2 input stream and tokenizer. Parser methods exist so callers and tests
+can agree on the intended document API, but they throw clear
+not-implemented errors until the tree-builder phases in
 C<DEVELOPMENT_PLAN.md> are completed.
 
 =head1 EXPORTS
@@ -54,6 +55,13 @@ Serialize C<value> as HTML and write it to C<path>.
 
 Reusable parser object with matching instance methods.
 
+=item C<HTMLInputStream>, C<HTMLTokenizer>, C<HTMLToken>,
+C<HTMLParseError>, C<HTMLNamedCharacterReferences>
+
+Tokenizer-layer classes re-exported from C<html/tokenizer>. These are
+available for focused tokenizer tests and for the future tree builder,
+but they do not yet build C<HTMLDocument> instances.
+
 =back
 
 =head1 COPYRIGHT AND LICENCE
@@ -77,6 +85,12 @@ from html/dom import
 	HTMLElement,
 	HTMLNode,
 	HTMLText;
+from html/tokenizer import
+	HTMLInputStream,
+	HTMLNamedCharacterReferences,
+	HTMLParseError,
+	HTMLToken,
+	HTMLTokenizer;
 
 function _html_parser_unimplemented ( String name ) {
 	die "html/parser: " _ name _ " is not implemented yet";

@@ -17,12 +17,11 @@ html/treebuilder - Phase 3 HTML tree construction framework.
 This module implements the full-document tree-builder layer for
 C<html/parser>. It connects the Phase 2 tokenizer to the Phase 1
 C<html/dom> classes and covers the initial, before html, before head,
-in head, text, after head, in body, after body, and after after body
-insertion modes.
+in head, text, after head, in body, table, select, template, frameset,
+after body, and after after body insertion modes.
 
-It deliberately does not implement tables, C<select>, C<template>,
-framesets, foreign content, fragment parsing, or the html5lib C<.dat>
-harness.
+It deliberately does not implement foreign content, fragment parsing, or
+the html5lib C<.dat> harness.
 
 =head1 COPYRIGHT AND LICENCE
 
@@ -117,6 +116,36 @@ function _html_tb_heading_element ( String name ) {
 
 function _html_tb_list_item_element ( String name ) {
 	return [ "li", "dd", "dt" ].contains(lc(name));
+}
+
+function _html_tb_table_context_element ( String name ) {
+	return [ "table", "tbody", "tfoot", "thead", "tr" ].contains(lc(name));
+}
+
+function _html_tb_table_section_element ( String name ) {
+	return [ "tbody", "tfoot", "thead" ].contains(lc(name));
+}
+
+function _html_tb_table_cell_element ( String name ) {
+	return [ "td", "th" ].contains(lc(name));
+}
+
+function _html_tb_table_structural_element ( String name ) {
+	return [
+		"caption",
+		"col",
+		"colgroup",
+		"tbody",
+		"td",
+		"tfoot",
+		"th",
+		"thead",
+		"tr",
+	].contains(lc(name));
+}
+
+function _html_tb_headish_element ( String name ) {
+	return [ "base", "link", "meta", "style", "title" ].contains(lc(name));
 }
 
 function _html_tb_implied_end_element ( String name ) {
@@ -244,6 +273,9 @@ class HTMLTreeBuilder {
 	let _document := null;
 	let Array _open_elements := [];
 	let Array _active_formatting_elements := [];
+	let Array _pending_table_character_tokens := [];
+	let Boolean _foster_parenting := false;
+	let Array _template_insertion_modes := [];
 	let _form_element := null;
 	let _head_element := null;
 	let _body_element := null;
@@ -265,6 +297,9 @@ class HTMLTreeBuilder {
 		_document := new HTMLDocument();
 		_open_elements := [];
 		_active_formatting_elements := [];
+		_pending_table_character_tokens := [];
+		_foster_parenting := false;
+		_template_insertion_modes := [];
 		_form_element := null;
 		_head_element := null;
 		_body_element := null;
@@ -366,6 +401,22 @@ class HTMLTreeBuilder {
 		] );
 	}
 
+	method hasElementInTableScope ( String name ) {
+		return self._has_element_in_scope( name, [ "html", "table", "template" ] );
+	}
+
+	method _has_element_in_table_scope ( String name ) {
+		return self.hasElementInTableScope(name);
+	}
+
+	method _has_template_on_stack () {
+		for ( let element in _open_elements ) {
+			return true if element.nodeKind() eq "element"
+				and element.tagName() eq "template";
+		}
+		return false;
+	}
+
 	method _has_element_in_scope ( String name, Array boundaries ) {
 		let wanted := lc(name);
 		let i := _open_elements.length() - 1;
@@ -404,6 +455,40 @@ class HTMLTreeBuilder {
 	method _current_node_is ( String name ) {
 		return false unless self.currentNode().nodeKind() eq "element";
 		return self.currentNode().tagName() eq lc(name);
+	}
+
+	method _clear_stack_back_to_table_context () {
+		while (
+			_open_elements.length() > 0 and
+			self.currentNode().nodeKind() eq "element" and
+			not [ "html", "table", "template" ].contains(self.currentNode().tagName())
+		) {
+			self.popElement();
+		}
+		return self;
+	}
+
+	method _clear_stack_back_to_table_body_context () {
+		while (
+			_open_elements.length() > 0 and
+			self.currentNode().nodeKind() eq "element" and
+			not [ "tbody", "tfoot", "thead", "html", "template" ]
+				.contains(self.currentNode().tagName())
+		) {
+			self.popElement();
+		}
+		return self;
+	}
+
+	method _clear_stack_back_to_table_row_context () {
+		while (
+			_open_elements.length() > 0 and
+			self.currentNode().nodeKind() eq "element" and
+			not [ "tr", "html", "template" ].contains(self.currentNode().tagName())
+		) {
+			self.popElement();
+		}
+		return self;
 	}
 
 	method _pop_until_name ( String name ) {
@@ -515,6 +600,19 @@ class HTMLTreeBuilder {
 		}
 		_active_formatting_elements.push(element);
 		return element;
+	}
+
+	method _push_active_formatting_marker () {
+		_active_formatting_elements.push(null);
+		return self;
+	}
+
+	method _clear_active_formatting_to_last_marker () {
+		while ( _active_formatting_elements.length() > 0 ) {
+			let entry := _active_formatting_elements.pop();
+			last if entry ≡ null;
+		}
+		return self;
 	}
 
 	method _remove_from_active_formatting_elements ( element ) {
@@ -863,8 +961,21 @@ class HTMLTreeBuilder {
 			case "text": return self._mode_text(token);
 			case "after head": return self._mode_after_head(token);
 			case "in body": return self._mode_in_body(token);
+			case "in table": return self._mode_in_table(token);
+			case "in table text": return self._mode_in_table_text(token);
+			case "in caption": return self._mode_in_caption(token);
+			case "in column group": return self._mode_in_column_group(token);
+			case "in table body": return self._mode_in_table_body(token);
+			case "in row": return self._mode_in_row(token);
+			case "in cell": return self._mode_in_cell(token);
+			case "in select": return self._mode_in_select(token);
+			case "in select in table": return self._mode_in_select_in_table(token);
+			case "in template": return self._mode_in_template(token);
+			case "in frameset": return self._mode_in_frameset(token);
+			case "after frameset": return self._mode_after_frameset(token);
 			case "after body": return self._mode_after_body(token);
 			case "after after body": return self._mode_after_after_body(token);
+			case "after after frameset": return self._mode_after_after_frameset(token);
 		}
 		self.parseError(
 			"unsupported-insertion-mode",
@@ -961,6 +1072,21 @@ class HTMLTreeBuilder {
 			self._enter_text_mode( "rawtext", token.tagName() );
 			return false;
 		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "noframes" ) {
+			self.insertElementForToken(token);
+			self._enter_text_mode( "rawtext", token.tagName() );
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "template" ) {
+			self.insertElementForToken(token);
+			self._push_active_formatting_marker();
+			_template_insertion_modes.push("in template");
+			self.switchTo("in template");
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "template" ) {
+			return self._end_template(token);
+		}
 		if (
 			token.type() eq "StartTag" and
 			[ "base", "link", "meta" ].contains(token.tagName())
@@ -1033,6 +1159,11 @@ class HTMLTreeBuilder {
 			self.switchTo("in body");
 			return false;
 		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "frameset" ) {
+			self.insertElementForToken(token);
+			self.switchTo("in frameset");
+			return false;
+		}
 		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
 			self.switchTo("in body");
 			return true;
@@ -1068,6 +1199,10 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		if ( token.type() eq "EOF" ) {
+			if ( self._has_template_on_stack() ) {
+				self.switchTo("in template");
+				return true;
+			}
 			_finished := true;
 			return false;
 		}
@@ -1095,6 +1230,51 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		if ( self._start_headish_in_body(token) ≢ null ) {
+			return false;
+		}
+		if ( name eq "table" ) {
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self._reconstruct_active_formatting_elements();
+			self.insertElementForToken(token);
+			_frameset_ok := false;
+			self.switchTo("in table");
+			return false;
+		}
+		if ( name eq "select" ) {
+			self._reconstruct_active_formatting_elements();
+			self.insertElementForToken(token);
+			_frameset_ok := false;
+			if (
+				[ "in table", "in caption", "in table body", "in row", "in cell" ]
+					.contains(_insertion_mode)
+			) {
+				self.switchTo("in select in table");
+			}
+			else {
+				self.switchTo("in select");
+			}
+			return false;
+		}
+		if ( name eq "frameset" ) {
+			if ( not _frameset_ok or _body_element ≡ null ) {
+				self.parseError(
+					"unexpected-frameset-start-tag",
+					"frameset start tag ignored",
+					token,
+				);
+				return false;
+			}
+			while (
+				_open_elements.length() > 0 and
+				self.currentNode() ≢ _body_element
+			) {
+				self.popElement();
+			}
+			self.popElement() if self.currentNode() ≡ _body_element;
+			_body_element.remove();
+			_body_element := null;
+			self.insertElementForToken(token);
+			self.switchTo("in frameset");
 			return false;
 		}
 		if ( _html_tb_block_element(name) ) {
@@ -1207,6 +1387,13 @@ class HTMLTreeBuilder {
 			_frameset_ok := false;
 			return false;
 		}
+		if ( name eq "template" ) {
+			self.insertElementForToken(token);
+			self._push_active_formatting_marker();
+			_template_insertion_modes.push("in template");
+			self.switchTo("in template");
+			return false;
+		}
 		self._reconstruct_active_formatting_elements();
 		self.insertElementForToken(token);
 		self.popElement() if _html_tb_void_element(name) or token.selfClosing();
@@ -1273,6 +1460,9 @@ class HTMLTreeBuilder {
 			self._remove_from_open_elements(form);
 			return false;
 		}
+		if ( name eq "template" ) {
+			return self._end_template(token);
+		}
 		if ( name eq "button" ) {
 			self._close_button(token);
 			return false;
@@ -1293,6 +1483,620 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		self._generic_end_tag( name, token );
+		return false;
+	}
+
+	method _mode_in_table ( HTMLToken token ) {
+		if ( token.type() eq "Character" ) {
+			_pending_table_character_tokens := [ token.data() ];
+			_original_insertion_mode := _insertion_mode;
+			self.switchTo("in table text");
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "DOCTYPE" ) {
+			self.parseError(
+				"unexpected-doctype-in-table",
+				"Unexpected doctype in table",
+				token,
+			);
+			return false;
+		}
+		if ( token.type() eq "StartTag" ) {
+			let name := token.tagName();
+			if ( name eq "caption" ) {
+				self._clear_stack_back_to_table_context();
+				self._push_active_formatting_marker();
+				self.insertElementForToken(token);
+				self.switchTo("in caption");
+				return false;
+			}
+			if ( name eq "colgroup" ) {
+				self._clear_stack_back_to_table_context();
+				self.insertElementForToken(token);
+				self.switchTo("in column group");
+				return false;
+			}
+			if ( name eq "col" ) {
+				self._clear_stack_back_to_table_context();
+				self.insertHtmlElement("colgroup");
+				self.switchTo("in column group");
+				return true;
+			}
+			if ( _html_tb_table_section_element(name) ) {
+				self._clear_stack_back_to_table_context();
+				self.insertElementForToken(token);
+				self.switchTo("in table body");
+				return false;
+			}
+			if ( name eq "tr" or _html_tb_table_cell_element(name) ) {
+				self._clear_stack_back_to_table_context();
+				self.insertHtmlElement("tbody");
+				self.switchTo("in table body");
+				return true;
+			}
+			if ( name eq "table" ) {
+				self.parseError(
+					"nested-table",
+					"Nested table start tag closes current table",
+					token,
+				);
+				if ( self.hasElementInTableScope("table") ) {
+					self._pop_until_name("table");
+					self._reset_insertion_mode_appropriately();
+					return true;
+				}
+				return false;
+			}
+			if (
+				name eq "input" and
+				lc(token.getAttribute("type") ≡ null ? "" : token.getAttribute("type"))
+					eq "hidden"
+			) {
+				self._insert_from_token_then_pop(token);
+				return false;
+			}
+			if ( name eq "form" ) {
+				if ( _form_element ≢ null or self._has_template_on_stack() ) {
+					self.parseError(
+						"form-in-table-ignored",
+						"form in table ignored",
+						token,
+					);
+					return false;
+				}
+				_form_element := self.insertElementForToken(token);
+				self.popElement();
+				return false;
+			}
+			if ( name eq "template" ) {
+				self.insertElementForToken(token);
+				self._push_active_formatting_marker();
+				_template_insertion_modes.push("in template");
+				self.switchTo("in template");
+				return false;
+			}
+			if ( _html_tb_headish_element(name) ) {
+				return self._process_using_in_head(token);
+			}
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "table" ) {
+			if ( not self.hasElementInTableScope("table") ) {
+				self.parseError(
+					"table-not-in-table-scope",
+					"table end tag not in table scope",
+					token,
+				);
+				return false;
+			}
+			self._pop_until_name("table");
+			if ( self._current_node_is("template") ) {
+				_template_insertion_modes.pop()
+					if _template_insertion_modes.length() > 0;
+				_template_insertion_modes.push("in template");
+				self.switchTo("in template");
+			}
+			else {
+				self._reset_insertion_mode_appropriately();
+			}
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "template" ) {
+			return self._end_template(token);
+		}
+		if ( token.type() eq "EOF" ) {
+			return self._mode_in_body(token);
+		}
+		self.parseError(
+			"unexpected-token-in-table",
+			"Unexpected token in table",
+			token,
+		);
+		_foster_parenting := true;
+		let reprocess := self._mode_in_body(token);
+		_foster_parenting := false;
+		return reprocess;
+	}
+
+	method _mode_in_table_text ( HTMLToken token ) {
+		if ( token.type() eq "Character" ) {
+			_pending_table_character_tokens.push(token.data());
+			return false;
+		}
+		let all_ws := true;
+		for ( let data in _pending_table_character_tokens ) {
+			all_ws := false unless _html_tb_is_ws(data);
+		}
+		if ( all_ws ) {
+			for ( let data in _pending_table_character_tokens ) {
+				self.insertCharacter(data);
+			}
+		}
+		else {
+			_foster_parenting := true;
+			for ( let data in _pending_table_character_tokens ) {
+				self.insertCharacter(data);
+			}
+			_foster_parenting := false;
+		}
+		_pending_table_character_tokens := [];
+		self.switchTo(_original_insertion_mode);
+		return true;
+	}
+
+	method _mode_in_caption ( HTMLToken token ) {
+		if (
+			token.type() eq "EndTag" and
+			token.tagName() eq "caption"
+		) {
+			self._close_caption(token);
+			return false;
+		}
+		if (
+			( token.type() eq "StartTag" and _html_tb_table_structural_element(token.tagName()) )
+			or ( token.type() eq "EndTag" and token.tagName() eq "table" )
+		) {
+			return false unless self._close_caption(token);
+			return true;
+		}
+		if (
+			token.type() eq "EndTag" and
+			[ "body", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr" ]
+				.contains(token.tagName())
+		) {
+			self.parseError(
+				"ignored-end-tag-in-caption",
+				"Ignored end tag in caption",
+				token,
+			);
+			return false;
+		}
+		return self._mode_in_body(token);
+	}
+
+	method _mode_in_column_group ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			self.insertCharacter(token.data());
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "col" ) {
+			self._insert_from_token_then_pop(token);
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "colgroup" ) {
+			return false unless self._current_node_is("colgroup");
+			self.popElement();
+			self.switchTo("in table");
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "template" ) {
+			return self._end_template(token);
+		}
+		if ( token.type() eq "EOF" ) {
+			return self._mode_in_body(token);
+		}
+		return false unless self._current_node_is("colgroup");
+		self.popElement();
+		self.switchTo("in table");
+		return true;
+	}
+
+	method _mode_in_table_body ( HTMLToken token ) {
+		if ( token.type() eq "StartTag" and token.tagName() eq "tr" ) {
+			self._clear_stack_back_to_table_body_context();
+			self.insertElementForToken(token);
+			self.switchTo("in row");
+			return false;
+		}
+		if ( token.type() eq "StartTag" and _html_tb_table_cell_element(token.tagName()) ) {
+			self._clear_stack_back_to_table_body_context();
+			self.insertHtmlElement("tr");
+			self.switchTo("in row");
+			return true;
+		}
+		if (
+			token.type() eq "EndTag" and
+			_html_tb_table_section_element(token.tagName())
+		) {
+			if ( not self.hasElementInTableScope(token.tagName()) ) {
+				self.parseError(
+					"table-section-not-in-scope",
+					"Table section end tag not in scope",
+					token,
+				);
+				return false;
+			}
+			self._clear_stack_back_to_table_body_context();
+			self.popElement();
+			self.switchTo("in table");
+			return false;
+		}
+		if (
+			( token.type() eq "StartTag" and
+				[ "caption", "col", "colgroup", "tbody", "tfoot", "thead" ]
+					.contains(token.tagName()) )
+			or ( token.type() eq "EndTag" and token.tagName() eq "table" )
+		) {
+			let current := self.currentNode().tagName();
+			if ( not _html_tb_table_section_element(current) ) {
+				self.parseError(
+					"table-body-context-missing",
+					"No table body context to close",
+					token,
+				);
+				return false;
+			}
+			self._clear_stack_back_to_table_body_context();
+			self.popElement();
+			self.switchTo("in table");
+			return true;
+		}
+		return self._mode_in_table(token);
+	}
+
+	method _mode_in_row ( HTMLToken token ) {
+		if ( token.type() eq "StartTag" and _html_tb_table_cell_element(token.tagName()) ) {
+			self._clear_stack_back_to_table_row_context();
+			self.insertElementForToken(token);
+			self._push_active_formatting_marker();
+			self.switchTo("in cell");
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "tr" ) {
+			if ( not self.hasElementInTableScope("tr") ) {
+				self.parseError(
+					"tr-not-in-table-scope",
+					"tr end tag not in table scope",
+					token,
+				);
+				return false;
+			}
+			self._clear_stack_back_to_table_row_context();
+			self.popElement();
+			self.switchTo("in table body");
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "tr" ) {
+			self._clear_stack_back_to_table_row_context();
+			self.popElement();
+			self.switchTo("in table body");
+			return true;
+		}
+		if (
+			( token.type() eq "StartTag" and
+				[ "caption", "col", "colgroup", "tbody", "tfoot", "thead" ]
+					.contains(token.tagName()) )
+			or ( token.type() eq "EndTag" and
+				[ "table", "tbody", "tfoot", "thead" ].contains(token.tagName()) )
+		) {
+			if ( not self.hasElementInTableScope("tr") ) {
+				self.parseError(
+					"tr-not-in-table-scope",
+					"No tr to close",
+					token,
+				);
+				return false;
+			}
+			self._clear_stack_back_to_table_row_context();
+			self.popElement();
+			self.switchTo("in table body");
+			return true;
+		}
+		return self._mode_in_table(token);
+	}
+
+	method _mode_in_cell ( HTMLToken token ) {
+		if (
+			token.type() eq "EndTag" and
+			_html_tb_table_cell_element(token.tagName())
+		) {
+			if ( not self.hasElementInTableScope(token.tagName()) ) {
+				self.parseError(
+					"cell-not-in-table-scope",
+					"Cell end tag not in table scope",
+					token,
+				);
+				return false;
+			}
+			self._close_cell(token);
+			return false;
+		}
+		if (
+			token.type() eq "StartTag" and
+			_html_tb_table_cell_element(token.tagName())
+		) {
+			self._close_cell(token);
+			return true;
+		}
+		if (
+			( token.type() eq "StartTag" and
+				[ "caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr" ]
+					.contains(token.tagName()) )
+			or ( token.type() eq "EndTag" and
+				[ "table", "tbody", "tfoot", "thead", "tr" ].contains(token.tagName()) )
+		) {
+			self._close_cell(token);
+			return true;
+		}
+		return self._mode_in_body(token);
+	}
+
+	method _mode_in_select ( HTMLToken token ) {
+		if ( token.type() eq "Character" ) {
+			self.insertCharacter(token.data());
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "DOCTYPE" ) {
+			self.parseError(
+				"unexpected-doctype-in-select",
+				"Unexpected doctype in select",
+				token,
+			);
+			return false;
+		}
+		if ( token.type() eq "StartTag" ) {
+			let name := token.tagName();
+			if ( name eq "html" ) {
+				return self._mode_in_body(token);
+			}
+			if ( name eq "option" ) {
+				self.popElement() if self._current_node_is("option");
+				self.insertElementForToken(token);
+				return false;
+			}
+			if ( name eq "optgroup" ) {
+				self.popElement() if self._current_node_is("option");
+				self.popElement() if self._current_node_is("optgroup");
+				self.insertElementForToken(token);
+				return false;
+			}
+			if ( name eq "select" ) {
+				self.parseError(
+					"nested-select",
+					"Nested select start tag closes select",
+					token,
+				);
+				return self._select_end(token);
+			}
+			if ( _html_tb_table_structural_element(name) or name eq "table" ) {
+				return self._mode_in_select_in_table(token);
+			}
+			self.parseError(
+				"ignored-start-tag-in-select",
+				"Ignored start tag in select",
+				token,
+			);
+			return false;
+		}
+		if ( token.type() eq "EndTag" ) {
+			let name := token.tagName();
+			if ( name eq "option" ) {
+				self.popElement() if self._current_node_is("option");
+				return false;
+			}
+			if ( name eq "optgroup" ) {
+				self.popElement() if self._current_node_is("option");
+				self.popElement() if self._current_node_is("optgroup");
+				return false;
+			}
+			if ( name eq "select" ) {
+				return self._select_end(token);
+			}
+			if ( _html_tb_table_structural_element(name) or name eq "table" ) {
+				return self._mode_in_select_in_table(token);
+			}
+		}
+		if ( token.type() eq "EOF" ) {
+			return self._mode_in_body(token);
+		}
+		return false;
+	}
+
+	method _select_end ( HTMLToken token ) {
+		if ( not self.hasElementInScope("select") ) {
+			self.parseError(
+				"select-not-in-scope",
+				"select element is not in scope",
+				token,
+			);
+			return false;
+		}
+		self._pop_until_name("select");
+		self._reset_insertion_mode_appropriately();
+		return false;
+	}
+
+	method _mode_in_select_in_table ( HTMLToken token ) {
+		let name := token.type() eq "StartTag" or token.type() eq "EndTag"
+			? token.tagName()
+			: "";
+		if (
+			( token.type() eq "StartTag" or token.type() eq "EndTag" ) and
+			( _html_tb_table_structural_element(name) or name eq "table" )
+		) {
+			self.parseError(
+				"table-token-in-select",
+				"Table token in select closes select",
+				token,
+			);
+			self._pop_until_name("select") if self.hasElementInScope("select");
+			self._reset_insertion_mode_appropriately();
+			return true;
+		}
+		return self._mode_in_select(token);
+	}
+
+	method _mode_in_template ( HTMLToken token ) {
+		if ( token.type() eq "EndTag" and token.tagName() eq "template" ) {
+			return self._end_template(token);
+		}
+		if ( token.type() eq "EOF" ) {
+			if ( not self.hasElementInScope("template") ) {
+				_finished := true;
+				return false;
+			}
+			self.parseError(
+				"eof-in-template",
+				"EOF in template",
+				token,
+			);
+			self._pop_until_name("template");
+			self._clear_active_formatting_to_last_marker();
+			_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+			self._reset_insertion_mode_appropriately();
+			return true;
+		}
+		if ( token.type() eq "StartTag" ) {
+			let name := token.tagName();
+			if ( _html_tb_headish_element(name) or name eq "template" ) {
+				return self._process_using_in_head(token);
+			}
+			if ( name eq "table" ) {
+				_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+				_template_insertion_modes.push("in table");
+				self.insertElementForToken(token);
+				self.switchTo("in table");
+				return false;
+			}
+			if ( name eq "col" or name eq "colgroup" ) {
+				_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+				_template_insertion_modes.push("in column group");
+				self.switchTo("in column group");
+				return true;
+			}
+			if ( _html_tb_table_section_element(name) ) {
+				_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+				_template_insertion_modes.push("in table body");
+				self.switchTo("in table body");
+				return true;
+			}
+			if ( name eq "tr" ) {
+				_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+				_template_insertion_modes.push("in table body");
+				self.switchTo("in table body");
+				return true;
+			}
+			if ( _html_tb_table_cell_element(name) ) {
+				_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+				_template_insertion_modes.push("in row");
+				self.switchTo("in row");
+				return true;
+			}
+		}
+		_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+		_template_insertion_modes.push("in body");
+		self.switchTo("in body");
+		return true;
+	}
+
+	method _mode_in_frameset ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			self.insertCharacter(token.data());
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
+			return self._mode_in_body(token);
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "frameset" ) {
+			self.insertElementForToken(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "frame" ) {
+			self._insert_from_token_then_pop(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "noframes" ) {
+			return self._process_using_in_head(token);
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "frameset" ) {
+			if ( self._current_node_is("html") ) {
+				self.parseError(
+					"unexpected-frameset-end-tag",
+					"Unexpected frameset end tag",
+					token,
+				);
+				return false;
+			}
+			self.popElement();
+			self.switchTo("after frameset")
+				unless self._current_node_is("frameset");
+			return false;
+		}
+		if ( token.type() eq "EOF" ) {
+			_finished := true;
+			return false;
+		}
+		self.parseError(
+			"unexpected-token-in-frameset",
+			"Unexpected token in frameset",
+			token,
+		);
+		return false;
+	}
+
+	method _mode_after_frameset ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			self.insertCharacter(token.data());
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
+			return self._mode_in_body(token);
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "noframes" ) {
+			return self._process_using_in_head(token);
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "html" ) {
+			self.switchTo("after after frameset");
+			return false;
+		}
+		if ( token.type() eq "EOF" ) {
+			_finished := true;
+			return false;
+		}
+		self.parseError(
+			"unexpected-token-after-frameset",
+			"Unexpected token after frameset",
+			token,
+		);
 		return false;
 	}
 
@@ -1342,6 +2146,30 @@ class HTMLTreeBuilder {
 		);
 		self.switchTo("in body");
 		return true;
+	}
+
+	method _mode_after_after_frameset ( HTMLToken token ) {
+		if ( token.type() eq "Comment" ) {
+			self.insertComment( token, _document );
+			return false;
+		}
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			self.switchTo("in body");
+			return true;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "noframes" ) {
+			return self._process_using_in_head(token);
+		}
+		if ( token.type() eq "EOF" ) {
+			_finished := true;
+			return false;
+		}
+		self.parseError(
+			"unexpected-token-after-frameset-html",
+			"Unexpected token after frameset html",
+			token,
+		);
+		return false;
 	}
 
 	method _enter_text_mode ( String state, String tag_name ) {
@@ -1441,12 +2269,238 @@ class HTMLTreeBuilder {
 		return self;
 	}
 
+	method _reset_insertion_mode_appropriately () {
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			let node := _open_elements[i];
+			if ( node.nodeKind() eq "element" ) {
+				let name := node.tagName();
+				if ( name eq "select" ) {
+					let j := i - 1;
+					while ( j >= 0 ) {
+						if (
+							_open_elements[j].nodeKind() eq "element" and
+							_open_elements[j].tagName() eq "template"
+						) {
+							self.switchTo("in select");
+							return self;
+						}
+						if (
+							_open_elements[j].nodeKind() eq "element" and
+							[ "table", "caption", "tbody", "tfoot", "thead", "tr", "td", "th" ]
+								.contains(_open_elements[j].tagName())
+						) {
+							self.switchTo("in select in table");
+							return self;
+						}
+						j--;
+					}
+					self.switchTo("in select");
+					return self;
+				}
+				if ( _html_tb_table_cell_element(name) ) {
+					self.switchTo("in cell");
+					return self;
+				}
+				if ( name eq "tr" ) {
+					self.switchTo("in row");
+					return self;
+				}
+				if ( _html_tb_table_section_element(name) ) {
+					self.switchTo("in table body");
+					return self;
+				}
+				if ( name eq "caption" ) {
+					self.switchTo("in caption");
+					return self;
+				}
+				if ( name eq "colgroup" ) {
+					self.switchTo("in column group");
+					return self;
+				}
+				if ( name eq "table" ) {
+					self.switchTo("in table");
+					return self;
+				}
+				if ( name eq "template" ) {
+					self.switchTo(
+						_template_insertion_modes.length() == 0
+							? "in template"
+							: _template_insertion_modes[
+								_template_insertion_modes.length() - 1
+							],
+					);
+					return self;
+				}
+				if ( name eq "head" ) {
+					self.switchTo("in head");
+					return self;
+				}
+				if ( name eq "body" ) {
+					self.switchTo("in body");
+					return self;
+				}
+				if ( name eq "frameset" ) {
+					self.switchTo("in frameset");
+					return self;
+				}
+			}
+			i--;
+		}
+		self.switchTo("in body");
+		return self;
+	}
+
+	method _close_caption ( token := null ) {
+		if ( not self.hasElementInTableScope("caption") ) {
+			self.parseError(
+				"caption-not-in-table-scope",
+				"caption element is not in table scope",
+				token,
+			);
+			return false;
+		}
+		self._generate_implied_end_tags();
+		self.parseError(
+			"misnested-caption-end-tag",
+			"Misnested caption end tag",
+			token,
+		) unless self._current_node_is("caption");
+		self._pop_until_name("caption");
+		self._clear_active_formatting_to_last_marker();
+		self.switchTo("in table");
+		return true;
+	}
+
+	method _close_cell ( token := null ) {
+		let name := self.hasElementInTableScope("td") ? "td" : "th";
+		if ( not self.hasElementInTableScope(name) ) {
+			self.parseError(
+				"cell-not-in-table-scope",
+				"No table cell is in table scope",
+				token,
+			);
+			return self;
+		}
+		self._generate_implied_end_tags();
+		self.parseError(
+			"misnested-cell-end-tag",
+			"Misnested cell end tag",
+			token,
+		) unless self._current_node_is(name);
+		self._pop_until_name(name);
+		self._clear_active_formatting_to_last_marker();
+		self.switchTo("in row");
+		return self;
+	}
+
+	method _end_template ( HTMLToken token ) {
+		if ( not self.hasElementInScope("template") ) {
+			self.parseError(
+				"template-not-in-scope",
+				"template end tag without open template",
+				token,
+			);
+			return false;
+		}
+		self._generate_implied_end_tags();
+		self._pop_until_name("template");
+		self._clear_active_formatting_to_last_marker();
+		_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
+		self._reset_insertion_mode_appropriately();
+		return false;
+	}
+
+	method _process_using_in_body ( HTMLToken token ) {
+		let old_mode := _insertion_mode;
+		_insertion_mode := "in body";
+		let reprocess := self._mode_in_body(token);
+		_insertion_mode := old_mode
+			if not reprocess and _insertion_mode eq "in body";
+		return reprocess;
+	}
+
+	method _process_using_in_head ( HTMLToken token ) {
+		let old_mode := _insertion_mode;
+		_insertion_mode := "in head";
+		let reprocess := self._mode_in_head(token);
+		_original_insertion_mode := old_mode if _insertion_mode eq "text";
+		_insertion_mode := old_mode
+			if not reprocess and _insertion_mode eq "in head";
+		return reprocess;
+	}
+
+	method _adjusted_insertion_location () {
+		let target := self.currentNode();
+		let parent := target;
+		let before := null;
+
+		if (
+			target.nodeKind() eq "element" and
+			target.tagName() eq "template"
+		) {
+			parent := target.content();
+		}
+
+		if ( _foster_parenting ) {
+			let table_index := -1;
+			let template_index := -1;
+			let i := _open_elements.length() - 1;
+			while ( i >= 0 ) {
+				if (
+					_open_elements[i].nodeKind() eq "element" and
+					_open_elements[i].tagName() eq "template"
+				) {
+					template_index := i;
+					last;
+				}
+				if (
+					_open_elements[i].nodeKind() eq "element" and
+					_open_elements[i].tagName() eq "table"
+				) {
+					table_index := i;
+					last;
+				}
+				i--;
+			}
+			if ( template_index >= 0 and template_index > table_index ) {
+				let template := _open_elements[template_index];
+				parent := template.content();
+				before := null;
+			}
+			else if ( table_index >= 0 ) {
+				let table := _open_elements[table_index];
+				if ( table.parentNode() ≢ null ) {
+					parent := table.parentNode();
+					before := table;
+				}
+				else if ( table_index > 0 ) {
+					parent := _open_elements[table_index - 1];
+					before := null;
+				}
+			}
+		}
+
+		return { parent: parent, before: before };
+	}
+
+	method _insert_node_at_adjusted_location ( node ) {
+		let location := self._adjusted_insertion_location();
+		if ( location{before} ≢ null ) {
+			location{parent}.insertBefore( node, location{before} );
+		}
+		else {
+			location{parent}.appendChild(node);
+		}
+		return node;
+	}
+
 	method insertElementForToken ( HTMLToken token ) {
 		let element := _document.createElement(token.tagName());
 		for ( let attr in token.attributes() ) {
 			element.setAttribute( attr{name}, attr{value} );
 		}
-		self.currentNode().appendChild(element);
+		self._insert_node_at_adjusted_location(element);
 		self.pushElement(element);
 		_head_element := element if element.tagName() eq "head";
 		_body_element := element if element.tagName() eq "body";
@@ -1455,7 +2509,7 @@ class HTMLTreeBuilder {
 
 	method insertHtmlElement ( String name ) {
 		let element := _document.createElement(name);
-		self.currentNode().appendChild(element);
+		self._insert_node_at_adjusted_location(element);
 		self.pushElement(element);
 		_head_element := element if element.tagName() eq "head";
 		_body_element := element if element.tagName() eq "body";
@@ -1464,19 +2518,34 @@ class HTMLTreeBuilder {
 
 	method insertCharacter ( String data ) {
 		return self if data eq "";
-		let parent := self.currentNode();
-		let previous := parent.lastChild();
+		let location := self._adjusted_insertion_location();
+		let previous := location{before} ≡ null
+			? location{parent}.lastChild()
+			: location{before}.previousSibling();
 		if ( previous ≢ null and previous.nodeKind() eq "text" ) {
 			previous.setData(previous.data() _ data);
 			return self;
 		}
-		parent.appendChild(_document.createTextNode(data));
+		if ( location{before} ≢ null ) {
+			location{parent}.insertBefore(
+				_document.createTextNode(data),
+				location{before},
+			);
+		}
+		else {
+			location{parent}.appendChild(_document.createTextNode(data));
+		}
 		return self;
 	}
 
 	method insertComment ( HTMLToken token, parent := null ) {
 		let insertion_parent := parent ≡ null ? self.currentNode() : parent;
-		insertion_parent.appendChild(_document.createComment(token.data()));
+		if ( parent ≢ null ) {
+			insertion_parent.appendChild(_document.createComment(token.data()));
+		}
+		else {
+			self._insert_node_at_adjusted_location(_document.createComment(token.data()));
+		}
 		return self;
 	}
 
@@ -1526,8 +2595,16 @@ class HTMLTreeTestSerializer {
 						_ _html_tb_quote_text(node.getAttribute(name)) _ "\"",
 				);
 			}
-			for ( let child in node.childNodes() ) {
-				self._serialize_node( child, depth + 1, lines );
+			if ( node.tagName() eq "template" ) {
+				lines.push(self._indent(depth + 1) _ "content");
+				for ( let child in node.content().childNodes() ) {
+					self._serialize_node( child, depth + 2, lines );
+				}
+			}
+			else {
+				for ( let child in node.childNodes() ) {
+					self._serialize_node( child, depth + 1, lines );
+				}
 			}
 			return self;
 		}

@@ -1,0 +1,86 @@
+from html/parser import HTML, HTMLDocument, HTMLParser, HTMLTreeTestSerializer;
+from test/more import *;
+
+function body_of ( HTMLDocument doc ) {
+	return doc.getElementsByTagName("body")[0];
+}
+
+function codes ( Array errors ) {
+	let out := [];
+	for ( let error in errors ) {
+		out.push(error.code());
+	}
+	return out;
+}
+
+function has_code ( Array errors, String code ) {
+	return codes(errors).contains(code);
+}
+
+let explicit := HTML.parse(
+	"<table><thead><tr><th>H</th></tr></thead>"
+		_ "<tbody><tr><td>B</td></tr></tbody></table>",
+);
+is( explicit.getElementsByTagName("thead").length(), 1, "explicit thead" );
+is( explicit.getElementsByTagName("tbody").length(), 1, "explicit tbody" );
+is( explicit.getElementsByTagName("th")[0].textContent(), "H", "th text" );
+is( explicit.getElementsByTagName("td")[0].textContent(), "B", "td text" );
+
+let implied := HTML.parse("<table><tr><td>x<th>y</table>");
+is( implied.getElementsByTagName("tbody").length(), 1, "tbody is implied" );
+is( implied.getElementsByTagName("tr").length(), 1, "tr is present" );
+is( implied.getElementsByTagName("td")[0].textContent(), "x", "td auto closes" );
+is( implied.getElementsByTagName("th")[0].textContent(), "y", "th follows td" );
+
+let caption := HTML.parse("<table><caption>Cap<tr><td>X</td></tr></table>");
+is( caption.getElementsByTagName("caption")[0].textContent(), "Cap", "caption text" );
+is( caption.getElementsByTagName("td")[0].textContent(), "X", "caption closes before row" );
+
+let cols := HTML.parse("<table><colgroup><col span=2></colgroup><tr><td>x");
+is( cols.getElementsByTagName("colgroup").length(), 1, "colgroup inserted" );
+is( cols.getElementsByTagName("col")[0].getAttribute("span"), "2", "col attrs copied" );
+is( cols.getElementsByTagName("td")[0].textContent(), "x", "row after colgroup" );
+
+let foster := HTML.parse("A<table><tr><td>B</td></tr>C</table>D");
+is(
+	HTMLTreeTestSerializer.serialize(foster),
+	"| <html>\n"
+		_ "|   <head>\n"
+		_ "|   <body>\n"
+		_ "|     \"AC\"\n"
+		_ "|     <table>\n"
+		_ "|       <tbody>\n"
+		_ "|         <tr>\n"
+		_ "|           <td>\n"
+		_ "|             \"B\"\n"
+		_ "|     \"D\"",
+	"table text is foster parented before table",
+);
+
+let foster_p := HTML.parse("<p>A<table>B<tr><td>C</td></tr>D</table>E");
+is( body_of(foster_p).children()[0].tagName(), "p", "p closes before table" );
+is( body_of(foster_p).textContent(), "ABDCE", "foster text order" );
+
+let table_form := HTML.parse(
+	"<table><form id=f><input type=hidden name=x><tr><td>c</td></tr></table>",
+);
+is( table_form.getElementsByTagName("form").length(), 1, "form in table inserted" );
+is( table_form.getElementsByTagName("form")[0].getAttribute("id"), "f", "form attrs" );
+is( table_form.getElementsByTagName("input")[0].getAttribute("name"), "x", "hidden input kept" );
+
+let nested_parser := new HTMLParser();
+let nested := nested_parser.parse(
+	"<table><tr><td>c</td></tr><table><tr><td>d</td></tr></table>",
+);
+is( nested.getElementsByTagName("table").length(), 2, "nested table recovers as sibling" );
+is( nested.getElementsByTagName("td")[1].textContent(), "d", "nested table text" );
+ok( has_code( nested_parser.errors(), "nested-table" ), "nested table records parse error" );
+
+let reusable := new HTMLParser();
+reusable.parse("<table><tr><td>x</td></tr>y</table>");
+ok( reusable.errors().length() > 0, "first table parse records foster/missing doctype errors" );
+let clean := reusable.parse("<!doctype html><p>clean</p>");
+is( reusable.errors().length(), 0, "parser reuse clears table state errors" );
+is( clean.getElementsByTagName("p")[0].textContent(), "clean", "parser reuse after table" );
+
+done_testing();

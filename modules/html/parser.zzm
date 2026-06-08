@@ -18,12 +18,14 @@ the WHATWG HTML specification.
 
 The distribution currently contains the Phase 1 DOM core, the Phase 2
 input stream and tokenizer, the Phase 3 full-document tree-builder
-framework, and the Phase 4 in-body rules. C<HTML.parse> and
+framework, the Phase 4 in-body rules, and the Phase 5 specialised
+table/select/template/frameset modes. C<HTML.parse> and
 C<HTMLParser.parse> now build C<HTMLDocument> trees for ordinary body
 content including paragraph/list/heading recovery, active formatting
 reconstruction, adoption-agency recovery, forms, buttons, void
-elements, and plaintext. Fragment parsing, file loading, and dumping
-remain deferred.
+elements, plaintext, table foster parenting, select recovery,
+template content, and framesets. Fragment parsing, file loading, and
+dumping remain deferred.
 
 =head1 EXPORTS
 
@@ -89,8 +91,10 @@ from html/dom import
 	DOMText,
 	HTMLComment,
 	HTMLDocument,
+	HTMLDocumentFragment,
 	HTMLDoctype,
 	HTMLElement,
+	HTMLTemplateElement,
 	HTMLNode,
 	HTMLText;
 from html/tokenizer import

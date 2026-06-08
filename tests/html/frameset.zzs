@@ -1,0 +1,58 @@
+from html/parser import HTML, HTMLParser, HTMLTreeTestSerializer;
+from test/more import *;
+
+function codes ( Array errors ) {
+	let out := [];
+	for ( let error in errors ) {
+		out.push(error.code());
+	}
+	return out;
+}
+
+function has_code ( Array errors, String code ) {
+	return codes(errors).contains(code);
+}
+
+let frameset := HTML.parse("<frameset><frame src=x></frameset>");
+is( frameset.getElementsByTagName("body").length(), 0, "frameset document has no body" );
+is( frameset.getElementsByTagName("frameset").length(), 1, "frameset element inserted" );
+is( frameset.getElementsByTagName("frame")[0].getAttribute("src"), "x", "frame attrs copied" );
+is( frameset.getElementsByTagName("frame")[0].childNodes().length(), 0, "frame is void" );
+
+let nested := HTML.parse("<frameset><frame><frameset><frame></frameset></frameset>");
+is( nested.getElementsByTagName("frameset").length(), 2, "nested framesets inserted" );
+is( nested.getElementsByTagName("frame").length(), 2, "nested frame elements inserted" );
+
+let noframes := HTML.parse("<frameset><noframes>fallback</noframes><frame></frameset>");
+is( noframes.getElementsByTagName("noframes")[0].textContent(), "fallback", "noframes parsed as raw text" );
+is( noframes.getElementsByTagName("frame").length(), 1, "frame after noframes remains in frameset" );
+is( noframes.getElementsByTagName("body").length(), 0, "noframes does not force body" );
+
+let blocked_parser := new HTMLParser();
+let blocked := blocked_parser.parse("text<frameset><frame></frameset>");
+is( blocked.getElementsByTagName("frameset").length(), 0, "body text prevents frameset replacement" );
+is( blocked.getElementsByTagName("body")[0].textContent(), "text", "body text preserved" );
+ok(
+	has_code( blocked_parser.errors(), "unexpected-frameset-start-tag" ),
+	"blocked frameset records parse error",
+);
+
+is(
+	HTMLTreeTestSerializer.serialize(frameset),
+	"| <html>\n"
+		_ "|   <head>\n"
+		_ "|   <frameset>\n"
+		_ "|     <frame>\n"
+		_ "|       src=\"x\"",
+	"frameset serializer shape",
+);
+
+let reusable := new HTMLParser();
+reusable.parse("<frameset><frame></frameset>");
+is( reusable.document().getElementsByTagName("frameset").length(), 1, "first reusable frameset parse" );
+let clean := reusable.parse("<!doctype html><p>clean</p>");
+is( reusable.errors().length(), 0, "parser reuse clears frameset state" );
+is( clean.getElementsByTagName("body").length(), 1, "parser reuse creates body after frameset" );
+is( clean.getElementsByTagName("p")[0].textContent(), "clean", "parser reuse after frameset" );
+
+done_testing();

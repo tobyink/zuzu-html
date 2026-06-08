@@ -1,0 +1,57 @@
+from html/parser import HTML, HTMLDocument, HTMLParser, HTMLTreeTestSerializer;
+from test/more import *;
+
+function codes ( Array errors ) {
+	let out := [];
+	for ( let error in errors ) {
+		out.push(error.code());
+	}
+	return out;
+}
+
+function has_code ( Array errors, String code ) {
+	return codes(errors).contains(code);
+}
+
+let options := HTML.parse("<select><option>a<option>b</select><p>x</p>");
+let option_nodes := options.getElementsByTagName("option");
+is( option_nodes.length(), 2, "option start closes previous option" );
+is( option_nodes[0].textContent(), "a", "first option text" );
+is( option_nodes[1].textContent(), "b", "second option text" );
+is( options.getElementsByTagName("p")[0].textContent(), "x", "mode resets after select" );
+
+let groups := HTML.parse(
+	"<select><optgroup label=g><option>a<optgroup><option>b</select>",
+);
+let optgroups := groups.getElementsByTagName("optgroup");
+is( optgroups.length(), 2, "optgroup start closes previous optgroup" );
+is( optgroups[0].getAttribute("label"), "g", "optgroup attrs copied" );
+is( optgroups[0].getElementsByTagName("option")[0].textContent(), "a", "first grouped option" );
+is( optgroups[1].getElementsByTagName("option")[0].textContent(), "b", "second grouped option" );
+
+let select_table_parser := new HTMLParser();
+let select_table := select_table_parser.parse(
+	"<table><tr><td><select><option>a<tr><td>b</select>c</td></tr></table>",
+);
+is( select_table.getElementsByTagName("select").length(), 1, "select inside table kept" );
+is( select_table.getElementsByTagName("option")[0].textContent(), "a", "select option text" );
+is( select_table.getElementsByTagName("tr").length(), 2, "table token in select reprocessed" );
+is( select_table.getElementsByTagName("td")[1].textContent(), "bc", "second cell receives following text" );
+ok(
+	has_code( select_table_parser.errors(), "table-token-in-select" ),
+	"select-in-table recovery records parse error",
+);
+
+let nested_parser := new HTMLParser();
+let nested := nested_parser.parse("<select><option>a<select><option>b</select>");
+is( nested.getElementsByTagName("select").length(), 1, "nested select closes original select" );
+ok( has_code( nested_parser.errors(), "nested-select" ), "nested select records parse error" );
+
+let reusable := new HTMLParser();
+reusable.parse("<select><option>a<tr><td>b");
+ok( reusable.errors().length() > 0, "first select parse records errors" );
+let clean := reusable.parse("<!doctype html><p>clean</p>");
+is( reusable.errors().length(), 0, "parser reuse clears select state errors" );
+is( clean.getElementsByTagName("p")[0].textContent(), "clean", "parser reuse after select" );
+
+done_testing();

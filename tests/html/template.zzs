@@ -1,0 +1,87 @@
+from html/parser import
+	HTML,
+	HTMLDocumentFragment,
+	HTMLParser,
+	HTMLTemplateElement,
+	HTMLTreeTestSerializer;
+from test/more import *;
+
+function codes ( Array errors ) {
+	let out := [];
+	for ( let error in errors ) {
+		out.push(error.code());
+	}
+	return out;
+}
+
+function has_code ( Array errors, String code ) {
+	return codes(errors).contains(code);
+}
+
+let dom_doc := HTML.parse("<!doctype html><body></body>");
+let made := dom_doc.createElement("template");
+ok( made instanceof HTMLTemplateElement, "createElement template returns template element" );
+ok( made.content() instanceof HTMLDocumentFragment, "template content is a fragment" );
+is( made.content().nodeType(), "11", "fragment node type" );
+
+let ordinary := HTML.parse("<body><template id=t><p>x</p>tail</template><p>out</p>");
+let template := ordinary.getElementsByTagName("template")[0];
+is( template.getAttribute("id"), "t", "template attrs copied" );
+is( template.childNodes().length(), 0, "template element has no direct children" );
+is( template.content().children()[0].tagName(), "p", "ordinary content lands in fragment" );
+is( template.content().children()[0].textContent(), "x", "fragment p text" );
+is( template.content().lastChild().data(), "tail", "fragment text tail" );
+is( ordinary.getElementsByTagName("body")[0].children()[1].textContent(), "out", "content after template outside fragment" );
+
+let template_pairs := HTML.parse(
+	"<body><template><p>x</p></template><template><p>y</p></template>",
+).getElementsByTagName("template");
+ok(
+	template_pairs[0].cloneNode(true).isEqualNode(template_pairs[0]),
+	"deep template clone equals original",
+);
+is(
+	template_pairs[0].isEqualNode(template_pairs[1]),
+	0,
+	"templates with different content are not equal",
+);
+is(
+	template_pairs[0].cloneNode(false).content().childNodes().length(),
+	0,
+	"shallow template clone does not copy content",
+);
+
+let table_template := HTML.parse(
+	"<body><template><table><tr><td>x</td></tr></table><p>y</p></template>",
+);
+is(
+	HTMLTreeTestSerializer.serialize(table_template),
+	"| <html>\n"
+		_ "|   <head>\n"
+		_ "|   <body>\n"
+		_ "|     <template>\n"
+		_ "|       content\n"
+		_ "|         <table>\n"
+		_ "|           <tbody>\n"
+		_ "|             <tr>\n"
+		_ "|               <td>\n"
+		_ "|                 \"x\"\n"
+		_ "|         <p>\n"
+		_ "|           \"y\"",
+	"table markup inside template uses template/table modes",
+);
+
+let eof_parser := new HTMLParser();
+let eof_doc := eof_parser.parse("<body><template><p>x");
+let eof_template := eof_doc.getElementsByTagName("template")[0];
+is( eof_template.content().children()[0].textContent(), "x", "EOF keeps template content" );
+ok( has_code( eof_parser.errors(), "eof-in-template" ), "EOF in template records parse error" );
+
+let reusable := new HTMLParser();
+reusable.parse("<body><template><table><tr><td>x</td></tr></table>");
+ok( reusable.errors().length() > 0, "first template parse records errors" );
+let clean := reusable.parse("<!doctype html><p>clean</p>");
+is( reusable.errors().length(), 0, "parser reuse clears template mode stack" );
+is( clean.getElementsByTagName("p")[0].textContent(), "clean", "parser reuse after template" );
+
+done_testing();

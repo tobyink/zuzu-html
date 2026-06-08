@@ -20,10 +20,12 @@ This module provides the Phase 1 pure-ZuzuScript mutable DOM core used by
 C<html/parser>. It intentionally mirrors the practical DOM-like API
 provided by C<std/data/xml>: construction, traversal, mutation,
 attributes, simple selector lookup, cloning, equality, tree walking, and
-serialization.
+serialization. Phase 5 adds the minimal C<template> DOM shape needed for
+HTML tree construction: C<HTMLTemplateElement> owns an
+C<HTMLDocumentFragment> returned by C<content()>.
 
-The parser and tokenizer are not implemented in Phase 1. Documents are
-created manually through constructors or C<HTMLDocument> factory methods.
+Documents may be created manually through constructors and
+C<HTMLDocument> factory methods, or by C<html/parser>.
 
 =head1 EXPORTS
 
@@ -49,6 +51,11 @@ C<getAttribute>, C<setAttribute>, C<hasAttribute>,
 C<removeAttribute>, C<attributeNames>, C<attributes>, and descendant
 C<getElementsByTagName>.
 
+=item C<HTMLTemplateElement>, C<HTMLDocumentFragment>
+
+Template elements and their content fragments. C<HTMLDocument>'s
+C<createElement("template")> returns an C<HTMLTemplateElement>.
+
 =item C<HTMLText>, C<HTMLComment>, C<HTMLDoctype>
 
 Text, comment, and doctype node classes.
@@ -60,7 +67,7 @@ DOM-compatible aliases implemented as subclasses of the HTML classes.
 
 =back
 
-=head1 PHASE 1 LIMITS
+=head1 CURRENT LIMITS
 
 =over
 
@@ -207,6 +214,7 @@ class HTMLNode {
 	method _default_node_name () {
 		switch ( _node_kind: eq ) {
 			case "document": return "#document";
+			case "fragment": return "#document-fragment";
 			case "text": return "#text";
 			case "comment": return "#comment";
 			case "doctype": return "html";
@@ -233,6 +241,7 @@ class HTMLNode {
 			case "comment": return "8";
 			case "document": return "9";
 			case "doctype": return "10";
+			case "fragment": return "11";
 			default: return "0";
 		}
 	}
@@ -671,6 +680,13 @@ class HTMLNode {
 			}
 			return join( "", parts );
 		}
+		if ( self.nodeKind() eq "fragment" ) {
+			let parts := [];
+			for ( let child in _child_nodes ) {
+				parts.push(child.toHTML(false));
+			}
+			return join( "", parts );
+		}
 		if ( self.nodeKind() eq "element" ) {
 			let tag := self.tagName();
 			let out := "<" _ tag _ self._serialize_attrs() _ ">";
@@ -807,6 +823,179 @@ class HTMLElement extends HTMLNode {
 	}
 }
 
+class HTMLDocumentFragment extends HTMLNode {
+	method __build__ () {
+		self._configure_node( "fragment", "#document-fragment" );
+		self._init_node();
+	}
+
+	method cloneNode ( deep := false ) {
+		let clone := new HTMLDocumentFragment(
+			_owner_document: self.ownerDocument(),
+		);
+		return self._clone_children_into( clone, deep );
+	}
+}
+
+class HTMLTemplateElement extends HTMLElement {
+	let String _tag_name := "template";
+	let Dict _attributes := {};
+	let _namespace_uri := null;
+	let _content := null;
+
+	method __build__ () {
+		_tag_name := "template";
+		_attributes := {} if _attributes ≡ null;
+		self._configure_node( "element", _tag_name );
+		self._init_node();
+		_content := new HTMLDocumentFragment(
+			_owner_document: self.ownerDocument(),
+		) if _content ≡ null;
+	}
+
+	method content () {
+		return _content;
+	}
+
+	method tagName () {
+		return _tag_name;
+	}
+
+	method localName () {
+		return _tag_name;
+	}
+
+	method namespaceURI () {
+		return _namespace_uri;
+	}
+
+	method id () {
+		return self.getAttribute("id");
+	}
+
+	method setId ( value ) {
+		return self.setAttribute( "id", value );
+	}
+
+	method getAttribute ( name ) {
+		let key := _html_dom_name(name);
+		return null unless _attributes.exists(key);
+		return _attributes{(key)};
+	}
+
+	method setAttribute ( name, value ) {
+		let key := _html_dom_name(name);
+		_attributes{(key)} := _html_dom_string(value);
+		return self;
+	}
+
+	method hasAttribute ( name ) {
+		return _attributes.exists(_html_dom_name(name));
+	}
+
+	method removeAttribute ( name ) {
+		let key := _html_dom_name(name);
+		_attributes.remove(key) if _attributes.exists(key);
+		return self;
+	}
+
+	method attributeNames () {
+		return _attributes.keys().sort( fn ( a, b ) -> a cmp b );
+	}
+
+	method attributes () {
+		let out := {};
+		for ( let key in self.attributeNames() ) {
+			out{(key)} := _attributes{(key)};
+		}
+		return out;
+	}
+
+	method getElementsByTagName ( name ) {
+		let wanted := lc(_html_dom_string(name));
+		let out := [];
+		for ( let node in self._descendant_elements() ) {
+			out.push(node) if wanted eq "*" or node.tagName() eq wanted;
+		}
+		return out;
+	}
+
+	method _serialize_attrs () {
+		let out := "";
+		for ( let name in self.attributeNames() ) {
+			out _= " " _ name _ "=\"" _ _html_dom_escape_attr(_attributes{(name)})
+				_ "\"";
+		}
+		return out;
+	}
+
+	method _collect_descendant_elements ( Array out ) {
+		for ( let child in self.childNodes() ) {
+			if ( child.nodeKind() eq "element" ) {
+				out.push(child);
+			}
+			child._collect_descendant_elements(out);
+		}
+		_content._collect_descendant_elements(out) if _content ≢ null;
+		return self;
+	}
+
+	method textContent () {
+		let out := "";
+		for ( let child in _content.childNodes() ) {
+			out _= child.textContent();
+		}
+		return out;
+	}
+
+	method toHTML ( pretty := false ) {
+		let out := "<template" _ self._serialize_attrs() _ ">";
+		for ( let child in _content.childNodes() ) {
+			out _= child.toHTML(false);
+		}
+		return out _ "</template>";
+	}
+
+	method isEqualNode ( other ) {
+		return false if other ≡ null;
+		return false unless other instanceof HTMLTemplateElement;
+		return false if self.nodeType() ne other.nodeType();
+		return false if self.nodeName() ne other.nodeName();
+
+		let names := self.attributeNames();
+		let other_names := other.attributeNames();
+		return false if names.length() != other_names.length();
+		for ( let name in names ) {
+			return false if self.getAttribute(name) ne other.getAttribute(name);
+		}
+
+		let children := _content.childNodes();
+		let other_children := other.content().childNodes();
+		return false if children.length() != other_children.length();
+		let i := 0;
+		while ( i < children.length() ) {
+			return false unless children[i].isEqualNode(other_children[i]);
+			i++;
+		}
+		return true;
+	}
+
+	method cloneNode ( deep := false ) {
+		let clone := new HTMLTemplateElement(
+			_owner_document: self.ownerDocument(),
+		);
+		for ( let name in self.attributeNames() ) {
+			clone.setAttribute( name, self.getAttribute(name) );
+		}
+		if ( deep ) {
+			for ( let child in _content.childNodes() ) {
+				clone.content().appendChild(child.cloneNode(true));
+			}
+		}
+		return clone;
+	}
+}
+
 class HTMLText extends HTMLNode {
 	let _data := null;
 
@@ -917,6 +1106,9 @@ class HTMLDocument extends HTMLNode {
 	}
 
 	method createElement ( name ) {
+		return new HTMLTemplateElement(
+			_owner_document: self,
+		) if _html_dom_name(name) eq "template";
 		return new HTMLElement(
 			_tag_name: _html_dom_name(name),
 			_owner_document: self,

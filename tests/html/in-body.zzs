@@ -1,0 +1,216 @@
+from html/parser import HTML, HTMLDocument, HTMLParser, HTMLTreeTestSerializer;
+from test/more import *;
+
+function codes ( Array errors ) {
+	let out := [];
+	for ( let error in errors ) {
+		out.push(error.code());
+	}
+	return out;
+}
+
+function has_code ( Array errors, String code ) {
+	return codes(errors).contains(code);
+}
+
+function body_of ( HTMLDocument doc ) {
+	return doc.getElementsByTagName("body")[0];
+}
+
+let p_doc := HTML.parse("<p>one<p>two");
+let p_nodes := p_doc.getElementsByTagName("p");
+is( p_nodes.length(), 2, "p start tag closes previous p" );
+is( p_nodes[0].textContent(), "one", "first implied-closed p text" );
+is( p_nodes[1].textContent(), "two", "second p text" );
+
+let div_p := HTML.parse("<div><p>x</div>");
+let div := div_p.getElementsByTagName("div")[0];
+is( div.firstChild().tagName(), "p", "block end leaves p inside div" );
+is( div.firstChild().textContent(), "x", "p inside div keeps text" );
+
+let stray_p_parser := new HTMLParser();
+let stray_p := stray_p_parser.parse("</p>x");
+is( stray_p.getElementsByTagName("p").length(), 1, "stray p end creates implied p" );
+is( body_of(stray_p).textContent(), "x", "stray p end recovers body text" );
+ok(
+	has_code( stray_p_parser.errors(), "unexpected-end-tag-p" ),
+	"stray p end records parse error",
+);
+
+let heading_parser := new HTMLParser();
+let headings := heading_parser.parse("<h1>a<h2>b");
+is( headings.getElementsByTagName("h1")[0].textContent(), "a", "h2 closes h1" );
+is( headings.getElementsByTagName("h2")[0].textContent(), "b", "h2 text kept" );
+ok(
+	has_code( heading_parser.errors(), "nested-heading" ),
+	"nested heading records parse error",
+);
+
+let list_doc := HTML.parse("<ul><li>a<li>b</ul>");
+let lis := list_doc.getElementsByTagName("li");
+is( lis.length(), 2, "li start closes previous li" );
+is( lis[0].textContent(), "a", "first li text" );
+is( lis[1].textContent(), "b", "second li text" );
+
+let dl_doc := HTML.parse("<dl><dt>a<dd>b<dt>c</dl>");
+let dts := dl_doc.getElementsByTagName("dt");
+let dds := dl_doc.getElementsByTagName("dd");
+is( dts.length(), 2, "dt starts close previous dd/dt" );
+is( dds.length(), 1, "dd preserved" );
+is( dts[0].textContent(), "a", "first dt text" );
+is( dds[0].textContent(), "b", "dd text" );
+is( dts[1].textContent(), "c", "second dt text" );
+
+let block_close := HTML.parse("<p>x<div>y</div>");
+is( body_of(block_close).children()[0].tagName(), "p", "block closes p before div" );
+is( body_of(block_close).children()[1].tagName(), "div", "div is sibling of p" );
+is( block_close.getElementsByTagName("p")[0].textContent(), "x", "closed p text" );
+is( block_close.getElementsByTagName("div")[0].textContent(), "y", "div text" );
+
+let reconstructed := HTML.parse("<p><b>one</p><p>two</b>");
+let reconstructed_ps := reconstructed.getElementsByTagName("p");
+is(
+	reconstructed_ps[0].firstChild().tagName(),
+	"b",
+	"first p has original b",
+);
+is(
+	reconstructed_ps[1].firstChild().tagName(),
+	"b",
+	"second p reconstructs active b",
+);
+is(
+	reconstructed_ps[1].firstChild().textContent(),
+	"two",
+	"reconstructed b wraps second p text",
+);
+
+let adoption_parser := new HTMLParser();
+let adoption := adoption_parser.parse("<p><b><i>x</b>y</i>");
+is(
+	HTMLTreeTestSerializer.serialize(adoption),
+	"| <html>\n"
+		_ "|   <head>\n"
+		_ "|   <body>\n"
+		_ "|     <p>\n"
+		_ "|       <b>\n"
+		_ "|         <i>\n"
+		_ "|           \"x\"\n"
+		_ "|       <i>\n"
+		_ "|         \"y\"",
+	"adoption-agency recovery reconstructs misnested i",
+);
+ok(
+	has_code(
+		adoption_parser.errors(),
+		"adoption-agency-misnested-formatting-element",
+	),
+	"adoption-agency records misnested formatting parse error",
+);
+
+let furthest_block_div := HTML.parse("<b><div><i>x</b>y</i></div>");
+is(
+	HTMLTreeTestSerializer.serialize(furthest_block_div),
+	"| <html>\n"
+		_ "|   <head>\n"
+		_ "|   <body>\n"
+		_ "|     <b>\n"
+		_ "|     <div>\n"
+		_ "|       <b>\n"
+		_ "|         <i>\n"
+		_ "|           \"x\"\n"
+		_ "|       <i>\n"
+		_ "|         \"y\"",
+	"adoption-agency handles furthest-block div case",
+);
+
+let furthest_block_p := HTML.parse("<b><p>1</b>2</p>");
+is(
+	HTMLTreeTestSerializer.serialize(furthest_block_p),
+	"| <html>\n"
+		_ "|   <head>\n"
+		_ "|   <body>\n"
+		_ "|     <b>\n"
+		_ "|     <p>\n"
+		_ "|       <b>\n"
+		_ "|         \"1\"\n"
+		_ "|       \"2\"",
+	"adoption-agency handles furthest-block p case",
+);
+
+let anchor_parser := new HTMLParser();
+let anchors := anchor_parser.parse("<a>one<a>two</a>");
+let a_nodes := anchors.getElementsByTagName("a");
+is( a_nodes.length(), 2, "nested a start cleans up previous active a" );
+is( a_nodes[0].textContent(), "one", "first a text" );
+is( a_nodes[1].textContent(), "two", "second a text" );
+ok( has_code( anchor_parser.errors(), "nested-anchor" ), "nested a records parse error" );
+
+let void_doc := HTML.parse("<p>a<br>b<img src=x>c<hr>d");
+let br := void_doc.getElementsByTagName("br")[0];
+let img := void_doc.getElementsByTagName("img")[0];
+let hr := void_doc.getElementsByTagName("hr")[0];
+is( br.childNodes().length(), 0, "br has no children" );
+is( img.childNodes().length(), 0, "img has no children" );
+is( img.getAttribute("src"), "x", "img attribute copied" );
+is( hr.childNodes().length(), 0, "hr has no children" );
+is( body_of(void_doc).lastChild().data(), "d", "text after hr is body text" );
+
+let form_parser := new HTMLParser();
+let forms := form_parser.parse("<form><form>x</form><form>y</form>");
+let form_nodes := forms.getElementsByTagName("form");
+is( form_nodes.length(), 2, "nested form ignored but later form allowed" );
+is( form_nodes[0].textContent(), "x", "first form text" );
+is( form_nodes[1].textContent(), "y", "second form text after pointer cleared" );
+ok( has_code( form_parser.errors(), "nested-form" ), "nested form records parse error" );
+
+let button_parser := new HTMLParser();
+let buttons := button_parser.parse("<button>one<button>two</button>");
+let button_nodes := buttons.getElementsByTagName("button");
+is( button_nodes.length(), 2, "nested button closes and reprocesses" );
+is( button_nodes[0].textContent(), "one", "first button text" );
+is( button_nodes[1].textContent(), "two", "second button text" );
+ok( has_code( button_parser.errors(), "nested-button" ), "nested button records parse error" );
+
+let plaintext := HTML.parse("<plaintext><b>&amp;</b>");
+is(
+	plaintext.getElementsByTagName("plaintext")[0].textContent(),
+	"<b>&amp;</b>",
+	"plaintext leaves all remaining source as text",
+);
+
+let recovery_parser := new HTMLParser();
+let recovery := recovery_parser.parse("<div></span>x</div>");
+is( recovery.getElementsByTagName("div")[0].textContent(), "x", "unexpected end recovers" );
+ok(
+	has_code( recovery_parser.errors(), "unexpected-end-tag" ),
+	"unexpected end tag records parse error",
+);
+
+let merge_doc := HTML.parse("<body id=x><body class=y><p>z</p>");
+let merge_body := body_of(merge_doc);
+is( merge_body.getAttribute("id"), "x", "body start sets first attribute" );
+is( merge_body.getAttribute("class"), "y", "later body start merges missing attribute" );
+
+let html_merge := HTML.parse("<html lang=en><body><html dir=ltr></body>");
+is( html_merge.documentElement().getAttribute("lang"), "en", "html keeps original attr" );
+is( html_merge.documentElement().getAttribute("dir"), "ltr", "html merges missing attr" );
+
+let reusable := new HTMLParser();
+let first := reusable.parse("<p><b>one</p><form><form>x</form>");
+ok( first instanceof HTMLDocument, "first parser reuse case returns document" );
+ok( reusable.errors().length() > 0, "first parser reuse case records errors" );
+let second := reusable.parse("<!doctype html><p>clean</p>");
+is( reusable.errors().length(), 0, "parser reuse clears Phase 4 state errors" );
+is(
+	second.getElementsByTagName("p")[0].firstChild().nodeKind(),
+	"text",
+	"parser reuse does not leak active formatting elements",
+);
+is(
+	second.getElementsByTagName("p")[0].textContent(),
+	"clean",
+	"parser reuse returns clean second document",
+);
+
+done_testing();

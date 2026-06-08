@@ -14,15 +14,15 @@ html/treebuilder - Phase 3 HTML tree construction framework.
 
 =head1 DESCRIPTION
 
-This module implements the first full-document tree-builder layer for
+This module implements the full-document tree-builder layer for
 C<html/parser>. It connects the Phase 2 tokenizer to the Phase 1
 C<html/dom> classes and covers the initial, before html, before head,
-in head, text, after head, basic in body, after body, and after after
-body insertion modes.
+in head, text, after head, in body, after body, and after after body
+insertion modes.
 
-It deliberately does not implement the Phase 4 adoption agency
-algorithm, full in-body special cases, tables, C<select>, C<template>,
-foreign content, fragment parsing, or the html5lib C<.dat> harness.
+It deliberately does not implement tables, C<select>, C<template>,
+framesets, foreign content, fragment parsing, or the html5lib C<.dat>
+harness.
 
 =head1 COPYRIGHT AND LICENCE
 
@@ -64,6 +64,149 @@ function _html_tb_void_element ( String name ) {
 	].contains(lc(name));
 }
 
+function _html_tb_block_element ( String name ) {
+	return [
+		"address",
+		"article",
+		"aside",
+		"blockquote",
+		"center",
+		"details",
+		"dialog",
+		"dir",
+		"div",
+		"dl",
+		"fieldset",
+		"figcaption",
+		"figure",
+		"footer",
+		"header",
+		"main",
+		"menu",
+		"nav",
+		"ol",
+		"p",
+		"section",
+		"summary",
+		"ul",
+	].contains(lc(name));
+}
+
+function _html_tb_formatting_element ( String name ) {
+	return [
+		"a",
+		"b",
+		"big",
+		"code",
+		"em",
+		"font",
+		"i",
+		"nobr",
+		"s",
+		"small",
+		"strike",
+		"strong",
+		"tt",
+		"u",
+	].contains(lc(name));
+}
+
+function _html_tb_heading_element ( String name ) {
+	return [ "h1", "h2", "h3", "h4", "h5", "h6" ].contains(lc(name));
+}
+
+function _html_tb_list_item_element ( String name ) {
+	return [ "li", "dd", "dt" ].contains(lc(name));
+}
+
+function _html_tb_implied_end_element ( String name ) {
+	return [
+		"dd",
+		"dt",
+		"li",
+		"optgroup",
+		"option",
+		"p",
+		"rb",
+		"rp",
+		"rt",
+		"rtc",
+	].contains(lc(name));
+}
+
+function _html_tb_special_element ( String name ) {
+	return _html_tb_block_element(name)
+		or _html_tb_heading_element(name)
+		or [
+			"applet",
+			"area",
+			"base",
+			"basefont",
+			"bgsound",
+			"body",
+			"br",
+			"button",
+			"caption",
+			"col",
+			"colgroup",
+			"dd",
+			"dt",
+			"embed",
+			"form",
+			"frame",
+			"frameset",
+			"head",
+			"hr",
+			"html",
+			"iframe",
+			"img",
+			"input",
+			"keygen",
+			"li",
+			"link",
+			"listing",
+			"marquee",
+			"meta",
+			"noembed",
+			"noframes",
+			"noscript",
+			"object",
+			"param",
+			"plaintext",
+			"pre",
+			"script",
+			"select",
+			"source",
+			"style",
+			"table",
+			"tbody",
+			"td",
+			"template",
+			"textarea",
+			"tfoot",
+			"th",
+			"thead",
+			"title",
+			"tr",
+			"track",
+			"wbr",
+		].contains(lc(name));
+}
+
+function _html_tb_same_element_shape ( a, b ) {
+	return false if a ≡ null or b ≡ null;
+	return false unless a.nodeKind() eq "element" and b.nodeKind() eq "element";
+	return false unless a.tagName() eq b.tagName();
+	let a_attrs := a.attributes();
+	let b_attrs := b.attributes();
+	return false unless a_attrs.keys().length() == b_attrs.keys().length();
+	for ( let name in a_attrs.keys() ) {
+		return false unless b_attrs.exists(name);
+		return false unless a_attrs{(name)} eq b_attrs{(name)};
+	}
+	return true;
+}
+
 function _html_tb_quote_text ( String text ) {
 	let out := replace( text, "\"", "\\\"", "g" );
 	out := replace( out, "\n", "\\n", "g" );
@@ -101,6 +244,9 @@ class HTMLTreeBuilder {
 	let _document := null;
 	let Array _open_elements := [];
 	let Array _active_formatting_elements := [];
+	let _form_element := null;
+	let _head_element := null;
+	let _body_element := null;
 	let String _insertion_mode := "initial";
 	let String _original_insertion_mode := "initial";
 	let Boolean _frameset_ok := true;
@@ -119,6 +265,9 @@ class HTMLTreeBuilder {
 		_document := new HTMLDocument();
 		_open_elements := [];
 		_active_formatting_elements := [];
+		_form_element := null;
+		_head_element := null;
+		_body_element := null;
 		_insertion_mode := "initial";
 		_original_insertion_mode := "initial";
 		_frameset_ok := true;
@@ -173,11 +322,497 @@ class HTMLTreeBuilder {
 	}
 
 	method hasElementInScope ( String name ) {
-		for ( let element in _open_elements ) {
-			return true if element.nodeKind() eq "element"
-				and element.tagName() eq lc(name);
+		return self._has_element_in_scope( name, [
+			"applet",
+			"caption",
+			"html",
+			"table",
+			"td",
+			"th",
+			"marquee",
+			"object",
+			"template",
+		] );
+	}
+
+	method hasElementInButtonScope ( String name ) {
+		return self._has_element_in_scope( name, [
+			"applet",
+			"button",
+			"caption",
+			"html",
+			"table",
+			"td",
+			"th",
+			"marquee",
+			"object",
+			"template",
+		] );
+	}
+
+	method hasElementInListItemScope ( String name ) {
+		return self._has_element_in_scope( name, [
+			"applet",
+			"caption",
+			"html",
+			"ol",
+			"ul",
+			"table",
+			"td",
+			"th",
+			"marquee",
+			"object",
+			"template",
+		] );
+	}
+
+	method _has_element_in_scope ( String name, Array boundaries ) {
+		let wanted := lc(name);
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			let element := _open_elements[i];
+			if ( element.nodeKind() eq "element" ) {
+				return true if element.tagName() eq wanted;
+				return false if boundaries.contains(element.tagName());
+			}
+			i--;
 		}
 		return false;
+	}
+
+	method _stack_index ( node ) {
+		let i := 0;
+		while ( i < _open_elements.length() ) {
+			return i if _open_elements[i] ≡ node;
+			i++;
+		}
+		return -1;
+	}
+
+	method _stack_index_for_name ( String name ) {
+		let wanted := lc(name);
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			let element := _open_elements[i];
+			return i if element.nodeKind() eq "element"
+				and element.tagName() eq wanted;
+			i--;
+		}
+		return -1;
+	}
+
+	method _current_node_is ( String name ) {
+		return false unless self.currentNode().nodeKind() eq "element";
+		return self.currentNode().tagName() eq lc(name);
+	}
+
+	method _pop_until_name ( String name ) {
+		while ( _open_elements.length() > 0 ) {
+			let element := self.popElement();
+			last if element.nodeKind() eq "element" and element.tagName() eq lc(name);
+		}
+		return self;
+	}
+
+	method _remove_from_open_elements ( node ) {
+		let kept := [];
+		for ( let element in _open_elements ) {
+			kept.push(element) unless element ≡ node;
+		}
+		_open_elements := kept;
+		return self;
+	}
+
+	method _insert_open_element_at ( node, Number index ) {
+		let out := [];
+		let inserted := false;
+		let i := 0;
+		if ( index <= 0 ) {
+			out.push(node);
+			inserted := true;
+		}
+		while ( i < _open_elements.length() ) {
+			if ( not inserted and i >= index ) {
+				out.push(node);
+				inserted := true;
+			}
+			out.push(_open_elements[i]);
+			i++;
+		}
+		out.push(node) unless inserted;
+		_open_elements := out;
+		return self;
+	}
+
+	method _replace_open_element ( oldNode, newNode ) {
+		let kept := [];
+		for ( let element in _open_elements ) {
+			kept.push( element ≡ oldNode ? newNode : element );
+		}
+		_open_elements := kept;
+		return self;
+	}
+
+	method _generate_implied_end_tags ( except := null ) {
+		while (
+			self.currentNode().nodeKind() eq "element" and
+			_html_tb_implied_end_element(self.currentNode().tagName()) and
+			( except ≡ null or self.currentNode().tagName() ne lc("" _ except) )
+		) {
+			self.popElement();
+		}
+		return self;
+	}
+
+	method _clone_for_insertion ( element ) {
+		let clone := _document.createElement(element.tagName());
+		for ( let name in element.attributeNames() ) {
+			clone.setAttribute( name, element.getAttribute(name) );
+		}
+		return clone;
+	}
+
+	method _active_index ( node ) {
+		let i := 0;
+		while ( i < _active_formatting_elements.length() ) {
+			return i if _active_formatting_elements[i] ≡ node;
+			i++;
+		}
+		return -1;
+	}
+
+	method _find_active_formatting_element ( String name ) {
+		let wanted := lc(name);
+		let i := _active_formatting_elements.length() - 1;
+		while ( i >= 0 ) {
+			let entry := _active_formatting_elements[i];
+			return entry if entry ≢ null
+				and entry.nodeKind() eq "element"
+				and entry.tagName() eq wanted;
+			i--;
+		}
+		return null;
+	}
+
+	method _push_active_formatting_element ( element ) {
+		let matching := [];
+		let i := 0;
+		while ( i < _active_formatting_elements.length() ) {
+			let entry := _active_formatting_elements[i];
+			matching.push(i) if entry ≢ null
+				and _html_tb_same_element_shape( entry, element );
+			i++;
+		}
+		if ( matching.length() >= 3 ) {
+			let remove_at := matching[0];
+			let kept := [];
+			i := 0;
+			while ( i < _active_formatting_elements.length() ) {
+				kept.push(_active_formatting_elements[i]) unless i == remove_at;
+				i++;
+			}
+			_active_formatting_elements := kept;
+		}
+		_active_formatting_elements.push(element);
+		return element;
+	}
+
+	method _remove_from_active_formatting_elements ( element ) {
+		let kept := [];
+		for ( let entry in _active_formatting_elements ) {
+			kept.push(entry) unless entry ≡ element;
+		}
+		_active_formatting_elements := kept;
+		return self;
+	}
+
+	method _insert_active_formatting_element_at ( element, Number index ) {
+		let out := [];
+		let inserted := false;
+		let i := 0;
+		if ( index <= 0 ) {
+			out.push(element);
+			inserted := true;
+		}
+		while ( i < _active_formatting_elements.length() ) {
+			if ( not inserted and i >= index ) {
+				out.push(element);
+				inserted := true;
+			}
+			out.push(_active_formatting_elements[i]);
+			i++;
+		}
+		out.push(element) unless inserted;
+		_active_formatting_elements := out;
+		return self;
+	}
+
+	method _replace_active_formatting_element ( oldNode, newNode ) {
+		let kept := [];
+		for ( let entry in _active_formatting_elements ) {
+			kept.push( entry ≡ oldNode ? newNode : entry );
+		}
+		_active_formatting_elements := kept;
+		return self;
+	}
+
+	method _reconstruct_active_formatting_elements () {
+		return self if _active_formatting_elements.length() == 0;
+		let i := _active_formatting_elements.length() - 1;
+		let entry := _active_formatting_elements[i];
+		return self if entry ≡ null or self._stack_index(entry) >= 0;
+
+		while ( i > 0 ) {
+			let previous := _active_formatting_elements[i - 1];
+			last if previous ≡ null or self._stack_index(previous) >= 0;
+			i--;
+		}
+		while ( i < _active_formatting_elements.length() ) {
+			let old := _active_formatting_elements[i];
+			let clone := self._clone_for_insertion(old);
+			self.currentNode().appendChild(clone);
+			self.pushElement(clone);
+			self._replace_active_formatting_element( old, clone );
+			i++;
+		}
+		return self;
+	}
+
+	method _adoption_agency_end_tag ( String name, token := null ) {
+		if (
+			self.currentNode().nodeKind() eq "element" and
+			self.currentNode().tagName() eq lc(name) and
+			self._active_index(self.currentNode()) < 0
+		) {
+			self.popElement();
+			return self;
+		}
+
+		let outer := 0;
+		while ( outer < 8 ) {
+			outer++;
+			let formatting := self._find_active_formatting_element(name);
+			if ( formatting ≡ null ) {
+				self.parseError(
+					"adoption-agency-missing-formatting-element",
+					"No active formatting element " _ name,
+					token,
+				);
+				self._generic_end_tag(name, token);
+				return self;
+			}
+
+			let formatting_stack_index := self._stack_index(formatting);
+			if ( formatting_stack_index < 0 ) {
+				self.parseError(
+					"adoption-agency-formatting-element-not-open",
+					"Formatting element " _ name _ " is not open",
+					token,
+				);
+				self._remove_from_active_formatting_elements(formatting);
+				return self;
+			}
+			if ( not self.hasElementInScope(name) ) {
+				self.parseError(
+					"adoption-agency-formatting-element-not-in-scope",
+					"Formatting element " _ name _ " is not in scope",
+					token,
+				);
+				return self;
+			}
+			if ( self.currentNode() ≢ formatting ) {
+				self.parseError(
+					"adoption-agency-misnested-formatting-element",
+					"Misnested formatting element " _ name,
+					token,
+				);
+			}
+
+			let furthest_block := null;
+			let i := formatting_stack_index + 1;
+			while ( i < _open_elements.length() ) {
+				let candidate := _open_elements[i];
+				if (
+					candidate.nodeKind() eq "element" and
+					_html_tb_special_element(candidate.tagName())
+				) {
+					furthest_block := candidate;
+					last;
+				}
+				i++;
+			}
+
+			if ( furthest_block ≡ null ) {
+				while ( _open_elements.length() > 0 ) {
+					let element := self.popElement();
+					last if element ≡ formatting;
+				}
+				self._remove_from_active_formatting_elements(formatting);
+				return self;
+			}
+
+			let common_ancestor := _open_elements[formatting_stack_index - 1];
+			let bookmark := self._active_index(formatting);
+			let node := furthest_block;
+			let last_node := furthest_block;
+			let inner := 0;
+
+			while ( true ) {
+				inner++;
+				let node_index := self._stack_index(node);
+				node_index--;
+				last if node_index < 0;
+				node := _open_elements[node_index];
+				last if node ≡ formatting;
+
+				if ( inner > 3 and self._active_index(node) >= 0 ) {
+					self._remove_from_active_formatting_elements(node);
+				}
+				if ( self._active_index(node) < 0 ) {
+					self._remove_from_open_elements(node);
+					next;
+				}
+
+				bookmark := self._active_index(node) + 1
+					if last_node ≡ furthest_block;
+
+				let clone := self._clone_for_insertion(node);
+				self._replace_active_formatting_element( node, clone );
+				self._replace_open_element( node, clone );
+				node := clone;
+				node.appendChild(last_node);
+				last_node := node;
+			}
+
+			common_ancestor.appendChild(last_node);
+
+			let replacement := self._clone_for_insertion(formatting);
+			for ( let child in furthest_block.childNodes() ) {
+				replacement.appendChild(child);
+			}
+			furthest_block.appendChild(replacement);
+
+			self._remove_from_active_formatting_elements(formatting);
+			self._insert_active_formatting_element_at( replacement, bookmark );
+			self._remove_from_open_elements(formatting);
+			self._insert_open_element_at(
+				replacement,
+				self._stack_index(furthest_block) + 1,
+			);
+		}
+		return self;
+	}
+
+	method _merge_missing_attributes ( target, HTMLToken token ) {
+		return self if target ≡ null;
+		for ( let attr in token.attributes() ) {
+			target.setAttribute( attr{name}, attr{value} )
+				unless target.hasAttribute(attr{name});
+		}
+		return self;
+	}
+
+	method _insert_from_token_then_pop ( HTMLToken token ) {
+		self.insertElementForToken(token);
+		self.popElement();
+		return self;
+	}
+
+	method _start_headish_in_body ( HTMLToken token ) {
+		if ( [ "base", "link", "meta", "style", "title" ].contains(token.tagName()) ) {
+			return self._mode_in_head(token);
+		}
+		return null;
+	}
+
+	method _close_p ( token := null ) {
+		if ( not self.hasElementInButtonScope("p") ) {
+			self.parseError(
+				"unexpected-end-tag-p",
+				"p element is not in button scope",
+				token,
+			);
+			self.insertHtmlElement("p");
+		}
+		self._generate_implied_end_tags("p");
+		self.parseError( "misnested-end-tag", "Misnested p end tag", token )
+			unless self._current_node_is("p");
+		self._pop_until_name("p");
+		return self;
+	}
+
+	method _close_list_item ( String name, token := null ) {
+		let scope := name eq "li"
+			? self.hasElementInListItemScope(name)
+			: self.hasElementInScope(name);
+		if ( not scope ) {
+			self.parseError(
+				"unexpected-end-tag",
+				name _ " element is not in scope",
+				token,
+			);
+			return self;
+		}
+		self._generate_implied_end_tags(name);
+		self.parseError(
+			"misnested-end-tag",
+			"Misnested " _ name _ " end tag",
+			token,
+		) unless self._current_node_is(name);
+		self._pop_until_name(name);
+		return self;
+	}
+
+	method _close_heading ( token := null ) {
+		let index := -1;
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			if (
+				_open_elements[i].nodeKind() eq "element" and
+				_html_tb_heading_element(_open_elements[i].tagName())
+			) {
+				index := i;
+				last;
+			}
+			i--;
+		}
+		if ( index < 0 ) {
+			self.parseError(
+				"unexpected-heading-end-tag",
+				"Heading element is not in scope",
+				token,
+			);
+			return self;
+		}
+		self._generate_implied_end_tags();
+		self.parseError(
+			"misnested-heading-end-tag",
+			"Misnested heading end tag",
+			token,
+		) unless _html_tb_heading_element(self.currentNode().tagName());
+		while ( _open_elements.length() > index ) {
+			self.popElement();
+		}
+		return self;
+	}
+
+	method _close_button ( token := null ) {
+		if ( not self.hasElementInScope("button") ) {
+			self.parseError(
+				"unexpected-button-end-tag",
+				"button element is not in scope",
+				token,
+			);
+			return self;
+		}
+		self._generate_implied_end_tags();
+		self.parseError(
+			"misnested-button-end-tag",
+			"Misnested button end tag",
+			token,
+		) unless self._current_node_is("button");
+		self._pop_until_name("button");
+		return self;
 	}
 
 	method parse () {
@@ -409,6 +1044,7 @@ class HTMLTreeBuilder {
 
 	method _mode_in_body ( HTMLToken token ) {
 		if ( token.type() eq "Character" ) {
+			self._reconstruct_active_formatting_elements();
 			self.insertCharacter(token.data());
 			_frameset_ok := false unless _html_tb_is_ws(token.data());
 			return false;
@@ -418,35 +1054,245 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		if ( token.type() eq "StartTag" ) {
-			if ( token.tagName() eq "html" ) {
-				self.parseError(
-					"unexpected-html-start-tag",
-					"Unexpected html start tag in body",
-					token,
-				);
-				return false;
-			}
-			self.insertElementForToken(token);
-			self.popElement()
-				if _html_tb_void_element(token.tagName()) or token.selfClosing();
-			return false;
+			return self._start_tag_in_body(token);
 		}
 		if ( token.type() eq "EndTag" ) {
-			if ( token.tagName() eq "body" ) {
-				self._close_body(token);
-				return false;
-			}
-			if ( token.tagName() eq "html" ) {
-				self._close_body(token);
-				return true;
-			}
-			self._close_named_element(token);
+			return self._end_tag_in_body(token);
+		}
+		if ( token.type() eq "DOCTYPE" ) {
+			self.parseError(
+				"unexpected-doctype-in-body",
+				"Unexpected doctype in body",
+				token,
+			);
 			return false;
 		}
 		if ( token.type() eq "EOF" ) {
 			_finished := true;
 			return false;
 		}
+		return false;
+	}
+
+	method _start_tag_in_body ( HTMLToken token ) {
+		let name := token.tagName();
+		if ( name eq "html" ) {
+			self.parseError(
+				"unexpected-html-start-tag",
+				"Unexpected html start tag in body",
+				token,
+			);
+			self._merge_missing_attributes( _document.documentElement(), token );
+			return false;
+		}
+		if ( name eq "body" ) {
+			self.parseError(
+				"unexpected-body-start-tag",
+				"Unexpected body start tag in body",
+				token,
+			);
+			self._merge_missing_attributes( _body_element, token );
+			return false;
+		}
+		if ( self._start_headish_in_body(token) ≢ null ) {
+			return false;
+		}
+		if ( _html_tb_block_element(name) ) {
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self.insertElementForToken(token);
+			return false;
+		}
+		if ( _html_tb_heading_element(name) ) {
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			if (
+				self.currentNode().nodeKind() eq "element" and
+				_html_tb_heading_element(self.currentNode().tagName())
+			) {
+				self.parseError(
+					"nested-heading",
+					"Nested heading start tag",
+					token,
+				);
+				self.popElement();
+			}
+			self.insertElementForToken(token);
+			return false;
+		}
+		if ( name eq "pre" or name eq "listing" ) {
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self.insertElementForToken(token);
+			_frameset_ok := false;
+			return false;
+		}
+		if ( name eq "form" ) {
+			if ( _form_element ≢ null ) {
+				self.parseError(
+					"nested-form",
+					"Nested form start tag ignored",
+					token,
+				);
+				return false;
+			}
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			_form_element := self.insertElementForToken(token);
+			return false;
+		}
+		if ( name eq "li" ) {
+			self._close_list_item( "li", token )
+				if self.hasElementInListItemScope("li");
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self.insertElementForToken(token);
+			return false;
+		}
+		if ( name eq "dd" or name eq "dt" ) {
+			self._close_list_item( "dd", token ) if self.hasElementInScope("dd");
+			self._close_list_item( "dt", token ) if self.hasElementInScope("dt");
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self.insertElementForToken(token);
+			return false;
+		}
+		if ( name eq "button" ) {
+			if ( self.hasElementInScope("button") ) {
+				self.parseError(
+					"nested-button",
+					"Nested button start tag",
+					token,
+				);
+				self._close_button(token);
+			}
+			self._reconstruct_active_formatting_elements();
+			self.insertElementForToken(token);
+			_frameset_ok := false;
+			return false;
+		}
+		if ( name eq "a" ) {
+			let active_a := self._find_active_formatting_element("a");
+			if ( active_a ≢ null ) {
+				self.parseError(
+					"nested-anchor",
+					"Nested a start tag",
+					token,
+				);
+				self._adoption_agency_end_tag( "a", token );
+				self._remove_from_open_elements(active_a);
+				self._remove_from_active_formatting_elements(active_a);
+			}
+			self._reconstruct_active_formatting_elements();
+			self._push_active_formatting_element(self.insertElementForToken(token));
+			return false;
+		}
+		if ( _html_tb_formatting_element(name) ) {
+			self._reconstruct_active_formatting_elements();
+			self._push_active_formatting_element(self.insertElementForToken(token));
+			return false;
+		}
+		if ( [ "br", "area", "embed", "img", "input", "wbr" ].contains(name) ) {
+			self._reconstruct_active_formatting_elements();
+			self._insert_from_token_then_pop(token);
+			_frameset_ok := false unless name eq "input"
+				and lc(token.getAttribute("type") ≡ null ? "" : token.getAttribute("type"))
+					eq "hidden";
+			return false;
+		}
+		if ( name eq "hr" ) {
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self._insert_from_token_then_pop(token);
+			_frameset_ok := false;
+			return false;
+		}
+		if ( name eq "plaintext" ) {
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self.insertElementForToken(token);
+			_tokenizer.setState("plaintext");
+			_frameset_ok := false;
+			return false;
+		}
+		self._reconstruct_active_formatting_elements();
+		self.insertElementForToken(token);
+		self.popElement() if _html_tb_void_element(name) or token.selfClosing();
+		return false;
+	}
+
+	method _end_tag_in_body ( HTMLToken token ) {
+		let name := token.tagName();
+		if ( name eq "body" ) {
+			self._close_body(token);
+			return false;
+		}
+		if ( name eq "html" ) {
+			self._close_body(token);
+			return true;
+		}
+		if ( name eq "p" ) {
+			self._close_p(token);
+			return false;
+		}
+		if ( _html_tb_block_element(name) ) {
+			if ( not self.hasElementInScope(name) ) {
+				self.parseError(
+					"unexpected-end-tag",
+					name _ " element is not in scope",
+					token,
+				);
+				return false;
+			}
+			self._generate_implied_end_tags();
+			self.parseError(
+				"misnested-end-tag",
+				"Misnested " _ name _ " end tag",
+				token,
+			) unless self._current_node_is(name);
+			self._pop_until_name(name);
+			return false;
+		}
+		if ( _html_tb_list_item_element(name) ) {
+			self._close_list_item( name, token );
+			return false;
+		}
+		if ( _html_tb_heading_element(name) ) {
+			self._close_heading(token);
+			return false;
+		}
+		if ( name eq "form" ) {
+			let form := _form_element;
+			_form_element := null;
+			if ( form ≡ null or self._stack_index(form) < 0 ) {
+				self.parseError(
+					"unexpected-form-end-tag",
+					"form element is not in scope",
+					token,
+				);
+				return false;
+			}
+			self._generate_implied_end_tags();
+			self.parseError(
+				"misnested-form-end-tag",
+				"Misnested form end tag",
+				token,
+			) unless self.currentNode() ≡ form;
+			self._remove_from_open_elements(form);
+			return false;
+		}
+		if ( name eq "button" ) {
+			self._close_button(token);
+			return false;
+		}
+		if ( _html_tb_formatting_element(name) ) {
+			self._adoption_agency_end_tag( name, token );
+			return false;
+		}
+		if ( name eq "br" ) {
+			self.parseError(
+				"unexpected-br-end-tag",
+				"br end tag treated as start tag",
+				token,
+			);
+			self._reconstruct_active_formatting_elements();
+			let br := _document.createElement("br");
+			self.currentNode().appendChild(br);
+			return false;
+		}
+		self._generic_end_tag( name, token );
 		return false;
 	}
 
@@ -511,9 +1357,18 @@ class HTMLTreeBuilder {
 			self.parseError( "body-not-in-scope", "Body not in scope", token );
 			return self;
 		}
-		while ( _open_elements.length() > 0 ) {
-			let element := self.popElement();
-			last if element.nodeKind() eq "element" and element.tagName() eq "body";
+		for ( let element in _open_elements ) {
+			if (
+				element.nodeKind() eq "element" and
+				not [ "html", "body" ].contains(element.tagName())
+			) {
+				self.parseError(
+					"unclosed-element-before-body-end",
+					"Open element before body end tag",
+					token,
+				);
+				last;
+			}
 		}
 		self.switchTo("after body");
 		return self;
@@ -551,6 +1406,41 @@ class HTMLTreeBuilder {
 		return self;
 	}
 
+	method _generic_end_tag ( String name, token := null ) {
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			let element := _open_elements[i];
+			if ( element.nodeKind() eq "element" and element.tagName() eq name ) {
+				self._generate_implied_end_tags(name);
+				self.parseError(
+					"misnested-end-tag",
+					"Misnested end tag " _ name,
+					token,
+				) unless self._current_node_is(name);
+				self._pop_until_name(name);
+				return self;
+			}
+			if (
+				element.nodeKind() eq "element" and
+				_html_tb_special_element(element.tagName())
+			) {
+				self.parseError(
+					"unexpected-end-tag",
+					"Unexpected end tag " _ name,
+					token,
+				);
+				return self;
+			}
+			i--;
+		}
+		self.parseError(
+			"unexpected-end-tag",
+			"Unexpected end tag " _ name,
+			token,
+		);
+		return self;
+	}
+
 	method insertElementForToken ( HTMLToken token ) {
 		let element := _document.createElement(token.tagName());
 		for ( let attr in token.attributes() ) {
@@ -558,6 +1448,8 @@ class HTMLTreeBuilder {
 		}
 		self.currentNode().appendChild(element);
 		self.pushElement(element);
+		_head_element := element if element.tagName() eq "head";
+		_body_element := element if element.tagName() eq "body";
 		return element;
 	}
 
@@ -565,6 +1457,8 @@ class HTMLTreeBuilder {
 		let element := _document.createElement(name);
 		self.currentNode().appendChild(element);
 		self.pushElement(element);
+		_head_element := element if element.tagName() eq "head";
+		_body_element := element if element.tagName() eq "body";
 		return element;
 	}
 

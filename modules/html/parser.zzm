@@ -17,10 +17,13 @@ implementation of the HTML parsing algorithm defined in chapter 13 of
 the WHATWG HTML specification.
 
 The distribution currently contains the Phase 1 DOM core, the Phase 2
-input stream and tokenizer, and the Phase 3 full-document tree-builder
-framework. C<HTML.parse> and C<HTMLParser.parse> now build basic
-C<HTMLDocument> trees for the insertion modes covered by Phase 3.
-Fragment parsing, file loading, and dumping remain deferred.
+input stream and tokenizer, the Phase 3 full-document tree-builder
+framework, and the Phase 4 in-body rules. C<HTML.parse> and
+C<HTMLParser.parse> now build C<HTMLDocument> trees for ordinary body
+content including paragraph/list/heading recovery, active formatting
+reconstruction, adoption-agency recovery, forms, buttons, void
+elements, and plaintext. Fragment parsing, file loading, and dumping
+remain deferred.
 
 =head1 EXPORTS
 

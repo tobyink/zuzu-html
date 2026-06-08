@@ -1,0 +1,653 @@
+=encoding utf8
+
+=head1 NAME
+
+html/treebuilder - Phase 3 HTML tree construction framework.
+
+=head1 SYNOPSIS
+
+  from html/treebuilder import HTMLTreeBuilder;
+
+  let result := new HTMLTreeBuilder(
+    _input: "<!doctype html><title>Example</title>",
+  ).parse();
+
+=head1 DESCRIPTION
+
+This module implements the first full-document tree-builder layer for
+C<html/parser>. It connects the Phase 2 tokenizer to the Phase 1
+C<html/dom> classes and covers the initial, before html, before head,
+in head, text, after head, basic in body, after body, and after after
+body insertion modes.
+
+It deliberately does not implement the Phase 4 adoption agency
+algorithm, full in-body special cases, tables, C<select>, C<template>,
+foreign content, fragment parsing, or the html5lib C<.dat> harness.
+
+=head1 COPYRIGHT AND LICENCE
+
+B<< html/treebuilder >> is copyright Toby Inkster.
+
+It is free software; you may redistribute it and/or modify it under
+the terms of either the Artistic License 1.0 or the GNU General Public
+License version 2.
+
+=cut
+
+from html/dom import HTMLDocument;
+from html/tokenizer import HTMLParseError, HTMLToken, HTMLTokenizer;
+from std/string import join, replace;
+
+function _html_tb_string ( value ) {
+	return value ≡ null ? "" : "" _ value;
+}
+
+function _html_tb_is_ws ( String data ) {
+	return data ~ /^[ \t\n\f]*$/;
+}
+
+function _html_tb_void_element ( String name ) {
+	return [
+		"area",
+		"base",
+		"br",
+		"col",
+		"embed",
+		"hr",
+		"img",
+		"input",
+		"link",
+		"meta",
+		"source",
+		"track",
+		"wbr",
+	].contains(lc(name));
+}
+
+function _html_tb_quote_text ( String text ) {
+	let out := replace( text, "\"", "\\\"", "g" );
+	out := replace( out, "\n", "\\n", "g" );
+	return out;
+}
+
+class HTMLTreeConstructionResult {
+	let _document := null;
+	let Array _errors := [];
+
+	method __build__ () {
+		_errors := [] if _errors ≡ null;
+	}
+
+	method document () {
+		return _document;
+	}
+
+	method errors () {
+		let out := [];
+		for ( let error in _errors ) {
+			out.push(error);
+		}
+		return out;
+	}
+
+	method parseErrors () {
+		return self.errors();
+	}
+}
+
+class HTMLTreeBuilder {
+	let String _input := "";
+	let _tokenizer := null;
+	let _document := null;
+	let Array _open_elements := [];
+	let Array _active_formatting_elements := [];
+	let String _insertion_mode := "initial";
+	let String _original_insertion_mode := "initial";
+	let Boolean _frameset_ok := true;
+	let Boolean _scripting := false;
+	let Boolean _finished := false;
+	let Array _errors := [];
+	let Number _tokenizer_error_index := 0;
+
+	method __build__ () {
+		self.reset(_input);
+	}
+
+	method reset ( String input := "" ) {
+		_input := _html_tb_string(input);
+		_tokenizer := new HTMLTokenizer( _input: _input );
+		_document := new HTMLDocument();
+		_open_elements := [];
+		_active_formatting_elements := [];
+		_insertion_mode := "initial";
+		_original_insertion_mode := "initial";
+		_frameset_ok := true;
+		_finished := false;
+		_errors := [];
+		_tokenizer_error_index := 0;
+		return self;
+	}
+
+	method tokenizer () {
+		return _tokenizer;
+	}
+
+	method document () {
+		return _document;
+	}
+
+	method errors () {
+		let out := [];
+		for ( let error in _errors ) {
+			out.push(error);
+		}
+		return out;
+	}
+
+	method parseErrors () {
+		return self.errors();
+	}
+
+	method insertionMode () {
+		return _insertion_mode;
+	}
+
+	method currentNode () {
+		return _document if _open_elements.length() == 0;
+		return _open_elements[ _open_elements.length() - 1 ];
+	}
+
+	method pushElement ( element ) {
+		_open_elements.push(element);
+		return element;
+	}
+
+	method popElement () {
+		return null if _open_elements.length() == 0;
+		return _open_elements.pop();
+	}
+
+	method switchTo ( String mode ) {
+		_insertion_mode := mode;
+		return self;
+	}
+
+	method hasElementInScope ( String name ) {
+		for ( let element in _open_elements ) {
+			return true if element.nodeKind() eq "element"
+				and element.tagName() eq lc(name);
+		}
+		return false;
+	}
+
+	method parse () {
+		while ( not _finished ) {
+			let token := _tokenizer.nextToken();
+			last if token ≡ null;
+			self._copy_tokenizer_errors();
+			let reprocess := true;
+			while ( reprocess ) {
+				reprocess := self._process_token(token);
+			}
+			self._copy_tokenizer_errors();
+		}
+		self._copy_tokenizer_errors();
+		return new HTMLTreeConstructionResult(
+			_document: _document,
+			_errors: self.errors(),
+		);
+	}
+
+	method _copy_tokenizer_errors () {
+		let tokenizer_errors := _tokenizer.errors();
+		while ( _tokenizer_error_index < tokenizer_errors.length() ) {
+			_errors.push(tokenizer_errors[_tokenizer_error_index]);
+			_tokenizer_error_index++;
+		}
+		return self;
+	}
+
+	method parseError ( String code, String message, token := null ) {
+		_errors.push(new HTMLParseError(
+			_code: code,
+			_message: message,
+			_line: 0,
+			_column: 0,
+			_offset: 0,
+			_state: _insertion_mode,
+		));
+		return self;
+	}
+
+	method _process_token ( HTMLToken token ) {
+		switch ( _insertion_mode: eq ) {
+			case "initial": return self._mode_initial(token);
+			case "before html": return self._mode_before_html(token);
+			case "before head": return self._mode_before_head(token);
+			case "in head": return self._mode_in_head(token);
+			case "text": return self._mode_text(token);
+			case "after head": return self._mode_after_head(token);
+			case "in body": return self._mode_in_body(token);
+			case "after body": return self._mode_after_body(token);
+			case "after after body": return self._mode_after_after_body(token);
+		}
+		self.parseError(
+			"unsupported-insertion-mode",
+			"Unsupported insertion mode " _ _insertion_mode,
+			token,
+		);
+		_finished := true;
+		return false;
+	}
+
+	method _mode_initial ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment( token, _document );
+			return false;
+		}
+		if ( token.type() eq "DOCTYPE" ) {
+			self.appendDoctype(token);
+			self.switchTo("before html");
+			return false;
+		}
+		self.parseError( "missing-doctype", "Document has no doctype", token );
+		self.switchTo("before html");
+		return true;
+	}
+
+	method _mode_before_html ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment( token, _document );
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
+			self.insertElementForToken(token);
+			self.switchTo("before head");
+			return false;
+		}
+		if ( token.type() eq "EOF" ) {
+			self.insertHtmlElement("html");
+			self.switchTo("before head");
+			return true;
+		}
+		self.insertHtmlElement("html");
+		self.switchTo("before head");
+		return true;
+	}
+
+	method _mode_before_head ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "head" ) {
+			self.insertElementForToken(token);
+			self.switchTo("in head");
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
+			self.parseError(
+				"unexpected-html-start-tag-before-head",
+				"Unexpected html start tag before head",
+				token,
+			);
+			return false;
+		}
+		self.insertHtmlElement("head");
+		self.switchTo("in head");
+		return true;
+	}
+
+	method _mode_in_head ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			self.insertCharacter(token.data());
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "title" ) {
+			self.insertElementForToken(token);
+			self._enter_text_mode( "rcdata", token.tagName() );
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "style" ) {
+			self.insertElementForToken(token);
+			self._enter_text_mode( "rawtext", token.tagName() );
+			return false;
+		}
+		if (
+			token.type() eq "StartTag" and
+			[ "base", "link", "meta" ].contains(token.tagName())
+		) {
+			self.insertElementForToken(token);
+			self.popElement();
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "head" ) {
+			self.popElement();
+			self.switchTo("after head");
+			return false;
+		}
+		if ( token.type() eq "EOF" ) {
+			self.parseError( "eof-in-head", "EOF in head", token );
+		}
+		self.popElement();
+		self.switchTo("after head");
+		return true;
+	}
+
+	method _mode_text ( HTMLToken token ) {
+		if ( token.type() eq "Character" ) {
+			self.insertCharacter(token.data());
+			return false;
+		}
+		if ( token.type() eq "EOF" ) {
+			self.parseError(
+				"eof-in-text-mode",
+				"EOF in text insertion mode",
+				token,
+			);
+			self.popElement();
+			self.switchTo(_original_insertion_mode);
+			_tokenizer.setState("data");
+			_tokenizer.setLastStartTagName(null);
+			return true;
+		}
+		if (
+			token.type() eq "EndTag" and
+			self.currentNode().nodeKind() eq "element" and
+			self.currentNode().tagName() eq token.tagName()
+		) {
+			self.popElement();
+			self.switchTo(_original_insertion_mode);
+			_tokenizer.setState("data");
+			_tokenizer.setLastStartTagName(null);
+			return false;
+		}
+		self.parseError(
+			"unexpected-token-in-text-mode",
+			"Unexpected token in text insertion mode",
+			token,
+		);
+		return false;
+	}
+
+	method _mode_after_head ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			self.insertHtmlElement("body");
+			self.switchTo("in body");
+			return true;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "body" ) {
+			self.insertElementForToken(token);
+			self.switchTo("in body");
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
+			self.switchTo("in body");
+			return true;
+		}
+		self.insertHtmlElement("body");
+		self.switchTo("in body");
+		return true;
+	}
+
+	method _mode_in_body ( HTMLToken token ) {
+		if ( token.type() eq "Character" ) {
+			self.insertCharacter(token.data());
+			_frameset_ok := false unless _html_tb_is_ws(token.data());
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "StartTag" ) {
+			if ( token.tagName() eq "html" ) {
+				self.parseError(
+					"unexpected-html-start-tag",
+					"Unexpected html start tag in body",
+					token,
+				);
+				return false;
+			}
+			self.insertElementForToken(token);
+			self.popElement()
+				if _html_tb_void_element(token.tagName()) or token.selfClosing();
+			return false;
+		}
+		if ( token.type() eq "EndTag" ) {
+			if ( token.tagName() eq "body" ) {
+				self._close_body(token);
+				return false;
+			}
+			if ( token.tagName() eq "html" ) {
+				self._close_body(token);
+				return true;
+			}
+			self._close_named_element(token);
+			return false;
+		}
+		if ( token.type() eq "EOF" ) {
+			_finished := true;
+			return false;
+		}
+		return false;
+	}
+
+	method _mode_after_body ( HTMLToken token ) {
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			let html := _document.documentElement();
+			self.insertComment( token, html ≢ null ? html : _document );
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "html" ) {
+			self.switchTo("after after body");
+			return false;
+		}
+		if ( token.type() eq "EOF" ) {
+			_finished := true;
+			return false;
+		}
+		self.parseError(
+			"unexpected-token-after-body",
+			"Unexpected token after body",
+			token,
+		);
+		self.switchTo("in body");
+		return true;
+	}
+
+	method _mode_after_after_body ( HTMLToken token ) {
+		if ( token.type() eq "Comment" ) {
+			self.insertComment( token, _document );
+			return false;
+		}
+		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
+			self.switchTo("in body");
+			return true;
+		}
+		if ( token.type() eq "EOF" ) {
+			_finished := true;
+			return false;
+		}
+		self.parseError(
+			"unexpected-token-after-html",
+			"Unexpected token after html",
+			token,
+		);
+		self.switchTo("in body");
+		return true;
+	}
+
+	method _enter_text_mode ( String state, String tag_name ) {
+		_original_insertion_mode := _insertion_mode;
+		_tokenizer.setState(state);
+		_tokenizer.setLastStartTagName(tag_name);
+		self.switchTo("text");
+		return self;
+	}
+
+	method _close_body ( HTMLToken token ) {
+		if ( not self.hasElementInScope("body") ) {
+			self.parseError( "body-not-in-scope", "Body not in scope", token );
+			return self;
+		}
+		while ( _open_elements.length() > 0 ) {
+			let element := self.popElement();
+			last if element.nodeKind() eq "element" and element.tagName() eq "body";
+		}
+		self.switchTo("after body");
+		return self;
+	}
+
+	method _close_named_element ( HTMLToken token ) {
+		let name := token.tagName();
+		let found := false;
+		for ( let element in _open_elements ) {
+			found := true if element.nodeKind() eq "element"
+				and element.tagName() eq name;
+		}
+		if ( not found ) {
+			self.parseError(
+				"unexpected-end-tag",
+				"Unexpected end tag " _ name,
+				token,
+			);
+			return self;
+		}
+		if (
+			self.currentNode().nodeKind() ne "element" or
+			self.currentNode().tagName() ne name
+		) {
+			self.parseError(
+				"misnested-end-tag",
+				"Misnested end tag " _ name,
+				token,
+			);
+		}
+		while ( _open_elements.length() > 0 ) {
+			let element := self.popElement();
+			last if element.nodeKind() eq "element" and element.tagName() eq name;
+		}
+		return self;
+	}
+
+	method insertElementForToken ( HTMLToken token ) {
+		let element := _document.createElement(token.tagName());
+		for ( let attr in token.attributes() ) {
+			element.setAttribute( attr{name}, attr{value} );
+		}
+		self.currentNode().appendChild(element);
+		self.pushElement(element);
+		return element;
+	}
+
+	method insertHtmlElement ( String name ) {
+		let element := _document.createElement(name);
+		self.currentNode().appendChild(element);
+		self.pushElement(element);
+		return element;
+	}
+
+	method insertCharacter ( String data ) {
+		return self if data eq "";
+		let parent := self.currentNode();
+		let previous := parent.lastChild();
+		if ( previous ≢ null and previous.nodeKind() eq "text" ) {
+			previous.setData(previous.data() _ data);
+			return self;
+		}
+		parent.appendChild(_document.createTextNode(data));
+		return self;
+	}
+
+	method insertComment ( HTMLToken token, parent := null ) {
+		let insertion_parent := parent ≡ null ? self.currentNode() : parent;
+		insertion_parent.appendChild(_document.createComment(token.data()));
+		return self;
+	}
+
+	method appendDoctype ( HTMLToken token ) {
+		_document.appendChild(_document.createDoctype(
+			token.tagName() eq "" ? "html" : token.tagName(),
+			token.publicId() ≡ null ? "" : token.publicId(),
+			token.systemId() ≡ null ? "" : token.systemId(),
+		));
+		return self;
+	}
+}
+
+class HTMLTreeTestSerializer {
+	static method serialize ( node ) {
+		let lines := [];
+		self._serialize_node( node, 0, lines );
+		return join( "\n", lines );
+	}
+
+	static method _indent ( Number depth ) {
+		let out := "| ";
+		let i := 0;
+		while ( i < depth ) {
+			out _= "  ";
+			i++;
+		}
+		return out;
+	}
+
+	static method _serialize_node ( node, Number depth, Array lines ) {
+		if ( node.nodeKind() eq "document" ) {
+			for ( let child in node.childNodes() ) {
+				self._serialize_node( child, depth, lines );
+			}
+			return self;
+		}
+		if ( node.nodeKind() eq "doctype" ) {
+			lines.push(self._indent(depth) _ "<!DOCTYPE " _ node.name() _ ">");
+			return self;
+		}
+		if ( node.nodeKind() eq "element" ) {
+			lines.push(self._indent(depth) _ "<" _ node.tagName() _ ">");
+			for ( let name in node.attributeNames() ) {
+				lines.push(
+					self._indent(depth + 1) _ name _ "=\""
+						_ _html_tb_quote_text(node.getAttribute(name)) _ "\"",
+				);
+			}
+			for ( let child in node.childNodes() ) {
+				self._serialize_node( child, depth + 1, lines );
+			}
+			return self;
+		}
+		if ( node.nodeKind() eq "text" ) {
+			lines.push(
+				self._indent(depth) _ "\"" _ _html_tb_quote_text(node.data())
+					_ "\"",
+			);
+			return self;
+		}
+		if ( node.nodeKind() eq "comment" ) {
+			lines.push(self._indent(depth) _ "<!-- " _ node.data() _ " -->");
+			return self;
+		}
+		return self;
+	}
+}

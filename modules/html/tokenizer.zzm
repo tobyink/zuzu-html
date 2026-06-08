@@ -477,6 +477,7 @@ class HTMLTokenizer {
 	let Array _errors := [];
 	let Number _read_index := 0;
 	let Boolean _tokenized := false;
+	let Boolean _eof_emitted := false;
 
 	method __build__ () {
 		self.reset( _input, _state );
@@ -492,6 +493,7 @@ class HTMLTokenizer {
 		_errors := [];
 		_read_index := 0;
 		_tokenized := false;
+		_eof_emitted := false;
 		_last_start_tag_name := null;
 		return self;
 	}
@@ -532,7 +534,9 @@ class HTMLTokenizer {
 	}
 
 	method nextToken () {
-		self._run() unless _tokenized;
+		while ( _read_index >= _tokens.length() and not _eof_emitted ) {
+			self._run_one_cycle();
+		}
 		return null if _read_index >= _tokens.length();
 		let token := _tokens[_read_index];
 		_read_index++;
@@ -540,7 +544,16 @@ class HTMLTokenizer {
 	}
 
 	method _run () {
-		while ( not _stream.eof() ) {
+		while ( not _eof_emitted ) {
+			self._run_one_cycle();
+		}
+		_tokenized := true;
+		return self;
+	}
+
+	method _run_one_cycle () {
+		return self if _eof_emitted;
+		if ( not _stream.eof() ) {
 			if ( _state eq "data" ) {
 				self._tokenize_data();
 			}
@@ -563,6 +576,7 @@ class HTMLTokenizer {
 				);
 				self.setState("data");
 			}
+			return self;
 		}
 		if ( _state ne "data" and _state ne "plaintext" ) {
 			self._parse_error(
@@ -571,7 +585,7 @@ class HTMLTokenizer {
 			);
 		}
 		self._emit(new HTMLToken( _type: "EOF" ));
-		_tokenized := true;
+		_eof_emitted := true;
 		return self;
 	}
 

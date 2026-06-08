@@ -1,11 +1,15 @@
 from html/parser import
 	HTML,
+	HTMLDocument,
 	HTMLInputStream,
 	HTMLNamedCharacterReferences,
 	HTMLParseError,
 	HTMLParser,
 	HTMLToken,
-	HTMLTokenizer;
+	HTMLTokenizer,
+	HTMLTreeBuilder,
+	HTMLTreeConstructionResult,
+	HTMLTreeTestSerializer;
 from test/more import *;
 
 ok( HTML ≢ null, "HTML export is available" );
@@ -18,12 +22,74 @@ ok(
 	HTMLNamedCharacterReferences ≢ null,
 	"HTMLNamedCharacterReferences re-export is available",
 );
+ok( HTMLTreeBuilder ≢ null, "HTMLTreeBuilder re-export is available" );
+ok(
+	HTMLTreeConstructionResult ≢ null,
+	"HTMLTreeConstructionResult re-export is available",
+);
+ok(
+	HTMLTreeTestSerializer ≢ null,
+	"HTMLTreeTestSerializer re-export is available",
+);
+
+let doc := HTML.parse("<!doctype html><title>Example</title><p>Body</p>");
+ok( doc instanceof HTMLDocument, "HTML.parse returns HTMLDocument" );
+is( doc.documentElement().tagName(), "html", "HTML.parse creates html root" );
+is(
+	doc.getElementsByTagName("title")[0].textContent(),
+	"Example",
+	"HTML.parse builds title text",
+);
+
+let doc2 := HTML.parse_string("<p>Alias</p>");
+ok( doc2 instanceof HTMLDocument, "HTML.parse_string delegates to parse" );
+is(
+	doc2.getElementsByTagName("p")[0].textContent(),
+	"Alias",
+	"HTML.parse_string builds document",
+);
+
+let parser := new HTMLParser();
+let first := parser.parse("<p>one</p>");
+is( parser.document(), first, "HTMLParser stores last document" );
+ok( parser.errors().length() > 0, "parser exposes parse errors" );
+let second := parser.parse("<!doctype html><p>two</p>");
+is( parser.document(), second, "HTMLParser updates last document" );
+is(
+	second.getElementsByTagName("p")[0].textContent(),
+	"two",
+	"HTMLParser reusable parse returns new content",
+);
+is( first.getElementsByTagName("p")[0].textContent(), "one", "old document kept" );
+is( parser.parseErrors().length(), parser.errors().length(), "parseErrors alias" );
+
 like(
-	exception( function() {
-		HTML.parse("<!doctype html><title>Example</title>");
+	exception( function () {
+		HTML.parse( "<p>x</p>", strict: true );
+	} ),
+	/parse errors encountered/,
+	"strict parse throws after parse errors",
+);
+like(
+	exception( function () {
+		HTML.parse_fragment("<p>x</p>");
 	} ),
 	/not implemented yet/,
-	"HTML.parse is a clear placeholder",
+	"HTML.parse_fragment remains a clear placeholder",
+);
+like(
+	exception( function () {
+		HTML.load("x.html");
+	} ),
+	/not implemented yet/,
+	"HTML.load remains a clear placeholder",
+);
+like(
+	exception( function () {
+		HTML.dump( "x.html", doc );
+	} ),
+	/not implemented yet/,
+	"HTML.dump remains a clear placeholder",
 );
 
 done_testing();

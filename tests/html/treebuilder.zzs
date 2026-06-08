@@ -1,0 +1,226 @@
+from html/parser import
+	HTML,
+	HTMLDocument,
+	HTMLParser,
+	HTMLTreeBuilder,
+	HTMLTreeConstructionResult,
+	HTMLTreeTestSerializer;
+from test/more import *;
+
+function codes ( Array errors ) {
+	let out := [];
+	for ( let error in errors ) {
+		out.push(error.code());
+	}
+	return out;
+}
+
+function has_code ( Array errors, String code ) {
+	return codes(errors).contains(code);
+}
+
+let explicit := HTML.parse(
+	"<!DOCTYPE html><html><head><title>x</title></head>"
+		_ "<body>y</body></html>",
+);
+ok( explicit instanceof HTMLDocument, "explicit parse returns HTMLDocument" );
+is( explicit.childNodes()[0].nodeKind(), "doctype", "explicit doctype added" );
+is( explicit.documentElement().tagName(), "html", "explicit html root" );
+is(
+	explicit.documentElement().children()[0].tagName(),
+	"head",
+	"explicit head element",
+);
+is(
+	explicit.documentElement().children()[1].tagName(),
+	"body",
+	"explicit body element",
+);
+is(
+	explicit.getElementsByTagName("title")[0].textContent(),
+	"x",
+	"explicit title text",
+);
+is(
+	explicit.getElementsByTagName("body")[0].textContent(),
+	"y",
+	"explicit body text",
+);
+
+let implied := HTML.parse("<title>x</title><p>y</p>");
+is( implied.documentElement().tagName(), "html", "implied html root" );
+is( implied.getElementsByTagName("head").length(), 1, "implied head" );
+is( implied.getElementsByTagName("body").length(), 1, "implied body" );
+is(
+	implied.getElementsByTagName("title")[0].textContent(),
+	"x",
+	"title lands in implied head",
+);
+is(
+	implied.getElementsByTagName("p")[0].textContent(),
+	"y",
+	"p lands in implied body",
+);
+
+let comments := HTML.parse(
+	"<!--pre--><!doctype html><html><head><!--head--></head>"
+		_ "<body><!--body--></body><!--after-body--></html>"
+		_ "<!--after-html-->",
+);
+is( comments.childNodes()[0].nodeKind(), "comment", "comment before doctype" );
+is( comments.childNodes()[0].data(), "pre", "pre-doctype comment data" );
+is(
+	comments.getElementsByTagName("head")[0].firstChild().data(),
+	"head",
+	"comment in head",
+);
+is(
+	comments.getElementsByTagName("body")[0].firstChild().data(),
+	"body",
+	"comment in body",
+);
+is(
+	comments.documentElement().lastChild().data(),
+	"after-body",
+	"comment after body attaches to html",
+);
+is( comments.lastChild().data(), "after-html", "comment after html attaches to document" );
+
+let public_doc := HTML.parse(
+	"<!DOCTYPE html PUBLIC \"pub\" \"sys\"><html><head></head><body></body>",
+);
+is( public_doc.childNodes()[0].publicId(), "pub", "doctype public id" );
+is( public_doc.childNodes()[0].systemId(), "sys", "doctype system id" );
+
+let attrs := HTML.parse("<!doctype html><p ID=main class='a b'>z</p>");
+let para := attrs.getElementsByTagName("p")[0];
+is( para.getAttribute("id"), "main", "attributes copied to DOM" );
+is( para.getAttribute("class"), "a b", "quoted attributes copied to DOM" );
+
+let coalesced := HTML.parse("<!doctype html><p>a&amp;b</p>");
+let coalesced_p := coalesced.getElementsByTagName("p")[0];
+is( coalesced_p.childNodes().length(), 1, "adjacent character tokens coalesce" );
+is( coalesced_p.firstChild().data(), "a&b", "coalesced text value" );
+
+let title_doc := HTML.parse("<!doctype html><title>a&amp;b</title>");
+is(
+	title_doc.getElementsByTagName("title")[0].textContent(),
+	"a&b",
+	"title uses RCDATA entity expansion",
+);
+let style_doc := HTML.parse("<!doctype html><style>a&amp;b</style>");
+is(
+	style_doc.getElementsByTagName("style")[0].textContent(),
+	"a&amp;b",
+	"style uses RAWTEXT without entity expansion",
+);
+
+let nested := HTML.parse("<!doctype html><div><span>x</span></div>");
+is(
+	nested.getElementsByTagName("div")[0].firstChild().tagName(),
+	"span",
+	"basic nested element",
+);
+is(
+	nested.getElementsByTagName("span")[0].textContent(),
+	"x",
+	"basic nested text",
+);
+
+let unmatched_parser := new HTMLParser();
+let unmatched := unmatched_parser.parse("<!doctype html></section><p>x</p>");
+is( unmatched.getElementsByTagName("p")[0].textContent(), "x", "unmatched end recovers" );
+ok(
+	has_code( unmatched_parser.errors(), "unexpected-end-tag" ),
+	"unmatched end tag records parse error",
+);
+
+let misnested_parser := new HTMLParser();
+let misnested := misnested_parser.parse("<!doctype html><div><span>x</div>");
+is(
+	misnested.getElementsByTagName("span")[0].textContent(),
+	"x",
+	"simple misnested end recovers",
+);
+ok(
+	has_code( misnested_parser.errors(), "misnested-end-tag" ),
+	"misnested end tag records parse error",
+);
+
+let eof_head_parser := new HTMLParser();
+let eof_head := eof_head_parser.parse("<!doctype html><head>");
+ok( eof_head instanceof HTMLDocument, "EOF in head still returns document" );
+ok(
+	has_code( eof_head_parser.errors(), "eof-in-head" ),
+	"EOF in head records tree-builder parse error",
+);
+
+let eof_text_parser := new HTMLParser();
+let eof_text := eof_text_parser.parse("<!doctype html><title>x");
+ok( eof_text instanceof HTMLDocument, "EOF in text mode still returns document" );
+ok(
+	has_code( eof_text_parser.errors(), "eof-in-rcdata" ),
+	"EOF in text mode preserves tokenizer parse error",
+);
+ok(
+	has_code( eof_text_parser.errors(), "eof-in-text-mode" ),
+	"EOF in text mode records tree-builder parse error",
+);
+
+let eof_body_parser := new HTMLParser();
+let eof_body := eof_body_parser.parse("<p>x");
+ok( eof_body instanceof HTMLDocument, "EOF in body still returns document" );
+ok(
+	has_code( eof_body_parser.errors(), "missing-doctype" ),
+	"EOF body case records earlier parse error",
+);
+
+let reusable := new HTMLParser();
+let reuse_one := reusable.parse("<p>one</p>");
+ok( has_code( reusable.errors(), "missing-doctype" ), "first reusable parse has error" );
+let reuse_two := reusable.parse("<!doctype html><p>two</p>");
+is(
+	reuse_one.getElementsByTagName("p")[0].textContent(),
+	"one",
+	"reused parser keeps first returned document stable",
+);
+is(
+	reuse_two.getElementsByTagName("p")[0].textContent(),
+	"two",
+	"reused parser returns second document",
+);
+is( reusable.errors().length(), 0, "reused parser clears previous errors" );
+
+let result := new HTMLTreeBuilder(
+	_input: "<!doctype html><p id=x>tree</p>",
+).parse();
+ok(
+	result instanceof HTMLTreeConstructionResult,
+	"HTMLTreeBuilder.parse returns construction result",
+);
+ok( result.document() instanceof HTMLDocument, "construction result exposes document" );
+is( result.parseErrors().length(), result.errors().length(), "result parseErrors alias" );
+
+is(
+	HTMLTreeTestSerializer.serialize(result.document()),
+	"| <!DOCTYPE html>\n"
+		_ "| <html>\n"
+		_ "|   <head>\n"
+		_ "|   <body>\n"
+		_ "|     <p>\n"
+		_ "|       id=\"x\"\n"
+		_ "|       \"tree\"",
+	"tree serializer emits selected html5lib-style tree",
+);
+is(
+	HTMLTreeTestSerializer.serialize(title_doc),
+	"| <!DOCTYPE html>\n"
+		_ "| <html>\n"
+		_ "|   <head>\n"
+		_ "|     <title>\n"
+		_ "|       \"a&b\"\n"
+		_ "|   <body>",
+	"tree serializer covers title case",
+);
+
+done_testing();

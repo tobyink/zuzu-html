@@ -16,11 +16,11 @@ This module is the planned main entry point for a ZuzuScript
 implementation of the HTML parsing algorithm defined in chapter 13 of
 the WHATWG HTML specification.
 
-The distribution currently contains the Phase 1 DOM core and the Phase
-2 input stream and tokenizer. Parser methods exist so callers and tests
-can agree on the intended document API, but they throw clear
-not-implemented errors until the tree-builder phases in
-C<DEVELOPMENT_PLAN.md> are completed.
+The distribution currently contains the Phase 1 DOM core, the Phase 2
+input stream and tokenizer, and the Phase 3 full-document tree-builder
+framework. C<HTML.parse> and C<HTMLParser.parse> now build basic
+C<HTMLDocument> trees for the insertion modes covered by Phase 3.
+Fragment parsing, file loading, and dumping remain deferred.
 
 =head1 EXPORTS
 
@@ -59,8 +59,12 @@ Reusable parser object with matching instance methods.
 C<HTMLParseError>, C<HTMLNamedCharacterReferences>
 
 Tokenizer-layer classes re-exported from C<html/tokenizer>. These are
-available for focused tokenizer tests and for the future tree builder,
-but they do not yet build C<HTMLDocument> instances.
+available for focused tokenizer tests and tree-builder integration.
+
+=item C<HTMLTreeBuilder>, C<HTMLTreeConstructionResult>,
+C<HTMLTreeTestSerializer>
+
+Tree-builder classes re-exported from C<html/treebuilder>.
 
 =back
 
@@ -82,6 +86,7 @@ from html/dom import
 	DOMText,
 	HTMLComment,
 	HTMLDocument,
+	HTMLDoctype,
 	HTMLElement,
 	HTMLNode,
 	HTMLText;
@@ -91,14 +96,37 @@ from html/tokenizer import
 	HTMLParseError,
 	HTMLToken,
 	HTMLTokenizer;
+from html/treebuilder import
+	HTMLTreeBuilder,
+	HTMLTreeConstructionResult,
+	HTMLTreeTestSerializer;
 
 function _html_parser_unimplemented ( String name ) {
 	die "html/parser: " _ name _ " is not implemented yet";
 }
 
 class HTMLParser {
+	let _last_result := null;
+	let _document := null;
+	let Array _errors := [];
+	let Boolean _scripting := false;
+
+	method __build__ () {
+		_errors := [] if _errors ≡ null;
+	}
+
 	method parse ( String html, ... PairList options ) {
-		_html_parser_unimplemented("parse");
+		_scripting := options.get( "scripting", false ) ? true : false;
+		let strict := options.get( "strict", false ) ? true : false;
+		let builder := new HTMLTreeBuilder(
+			_input: html,
+			_scripting: _scripting,
+		);
+		_last_result := builder.parse();
+		_document := _last_result.document();
+		_errors := _last_result.errors();
+		die "html/parser: parse errors encountered" if strict and _errors.length();
+		return _document;
 	}
 
 	method parse_string ( String html, ... PairList options ) {
@@ -115,6 +143,22 @@ class HTMLParser {
 
 	method dump ( path, value, Boolean pretty := false ) {
 		_html_parser_unimplemented("dump");
+	}
+
+	method document () {
+		return _document;
+	}
+
+	method errors () {
+		let out := [];
+		for ( let error in _errors ) {
+			out.push(error);
+		}
+		return out;
+	}
+
+	method parseErrors () {
+		return self.errors();
 	}
 }
 

@@ -1,11 +1,13 @@
 from html/dom import
 	DOMComment,
 	DOMDocument,
+	DOMDoctype,
 	DOMElement,
 	DOMNode,
 	DOMText,
 	HTMLComment,
 	HTMLDocument,
+	HTMLDoctype,
 	HTMLElement,
 	HTMLNode,
 	HTMLText;
@@ -16,10 +18,252 @@ ok( HTMLDocument ≢ null, "HTMLDocument export is available" );
 ok( HTMLElement ≢ null, "HTMLElement export is available" );
 ok( HTMLText ≢ null, "HTMLText export is available" );
 ok( HTMLComment ≢ null, "HTMLComment export is available" );
+ok( HTMLDoctype ≢ null, "HTMLDoctype export is available" );
 ok( DOMNode ≢ null, "DOMNode alias export is available" );
 ok( DOMDocument ≢ null, "DOMDocument alias export is available" );
 ok( DOMElement ≢ null, "DOMElement alias export is available" );
 ok( DOMText ≢ null, "DOMText alias export is available" );
 ok( DOMComment ≢ null, "DOMComment alias export is available" );
+ok( DOMDoctype ≢ null, "DOMDoctype alias export is available" );
+
+let doc := new HTMLDocument();
+let doctype := doc.createDoctype();
+let root := doc.createElement("HTML");
+let head := doc.createElement("head");
+let body := doc.createElement("body");
+let main := doc.createElement("MAIN");
+let para := doc.createElement("p");
+let span := doc.createElement("span");
+let text := doc.createTextNode("Hello");
+let comment := doc.createComment("tail");
+
+doc.appendChild(doctype);
+doc.appendChild(root);
+root.appendChild(head);
+root.appendChild(body);
+body.appendChild(main);
+main.setAttribute( "ID", "main" );
+main.setAttribute( "class", "alpha beta" );
+main.appendChild(para);
+para.appendChild(text);
+para.appendChild(span);
+span.setTextContent(" world");
+root.appendChild(comment);
+
+is( doc.documentElement(), root, "documentElement returns first element" );
+is( doc.nodeName(), "#document", "document nodeName" );
+is( doc.nodeType(), "9", "document nodeType" );
+is( root.nodeName(), "html", "element nodeName lowercases" );
+is( root.nodeType(), "1", "element nodeType" );
+is( text.nodeName(), "#text", "text nodeName" );
+is( text.nodeType(), "3", "text nodeType" );
+is( comment.nodeType(), "8", "comment nodeType" );
+is( doctype.nodeType(), "10", "doctype nodeType" );
+is( doctype.nodeName(), "html", "doctype nodeName" );
+is( root.nodeKind(), "element", "nodeKind element" );
+is( text.nodeKind(), "text", "nodeKind text" );
+is( comment.nodeKind(), "comment", "nodeKind comment" );
+is( doctype.nodeKind(), "doctype", "nodeKind doctype" );
+is( root.localName(), "html", "element localName" );
+is( doctype.localName(), "html", "doctype localName" );
+is( root.namespaceURI(), null, "namespaceURI defaults null" );
+isnt( root.uniqueKey(), body.uniqueKey(), "uniqueKey is unique" );
+is( root.uniqueKey(), root.unique_id(), "uniqueKey and unique_id agree" );
+
+is( root.childNodes().length(), 3, "childNodes length" );
+is( root.children().length(), 2, "children filters elements" );
+is( root.hasChildNodes(), 1, "hasChildNodes true" );
+is( root.firstChild(), head, "firstChild" );
+is( root.lastChild(), comment, "lastChild" );
+is( body.previousSibling(), head, "previousSibling" );
+is( head.nextSibling(), body, "nextSibling" );
+is( body.parentNode(), root, "parentNode" );
+is( body.ownerDocument(), doc, "ownerDocument after insertion" );
+let child_copy := root.childNodes();
+child_copy.push( doc.createElement("fake") );
+is( root.childNodes().length(), 3, "childNodes returns copy" );
+
+let aside := doc.createElement("aside");
+body.prependChild(aside);
+is( body.firstChild(), aside, "prependChild" );
+let nav := doc.createElement("nav");
+body.insertBefore( nav, main );
+is( main.previousSibling(), nav, "insertBefore" );
+let article := doc.createElement("article");
+body.replaceChild( article, nav );
+is( article.nextSibling(), main, "replaceChild inserts replacement" );
+is( nav.parentNode(), null, "replaceChild detaches old node" );
+body.removeChild(article);
+is( article.parentNode(), null, "removeChild detaches child" );
+aside.remove();
+is( aside.parentNode(), null, "remove detaches self" );
+
+let other := doc.createElement("section");
+root.appendChild(other);
+other.appendChild(main);
+is( body.children().length(), 0, "moving node detaches from old parent" );
+is( other.firstChild(), main, "moving node appends to new parent" );
+like(
+	exception( function () {
+		main.appendChild(root);
+	} ),
+	/cannot insert ancestor|itself/,
+	"cycle prevention throws",
+);
+like(
+	exception( function () {
+		root.appendChild(new HTMLDocument());
+	} ),
+	/cannot insert document node/,
+	"document node insertion rejected",
+);
+like(
+	exception( function () {
+		doc.appendChild( doc.createElement("second-root") );
+	} ),
+	/document already has a root element/,
+	"document rejects second root",
+);
+like(
+	exception( function () {
+		doc.appendChild( doc.createDoctype() );
+	} ),
+	/document already has a doctype/,
+	"document rejects second doctype",
+);
+like(
+	exception( function () {
+		doc.appendChild( doc.createTextNode("x") );
+	} ),
+	/cannot insert text directly under document/,
+	"document rejects direct text",
+);
+
+is( main.tagName(), "main", "tagName lowercases" );
+is( main.id(), "main", "id reads attribute" );
+main.setId("primary");
+is( main.id(), "primary", "setId writes id" );
+is( main.getAttribute("ID"), "primary", "getAttribute is case-insensitive" );
+is( main.hasAttribute("class"), 1, "hasAttribute true" );
+main.setAttribute( "data-state", "ready" );
+is( main.getAttribute("data-state"), "ready", "setAttribute stores string" );
+let names := main.attributeNames();
+is( names.contains("id"), 1, "attributeNames contains id" );
+is( names.contains("class"), 1, "attributeNames contains class" );
+let attrs := main.attributes();
+attrs{class} := "changed";
+is( main.getAttribute("class"), "alpha beta", "attributes returns copy" );
+main.removeAttribute("data-state");
+is( main.hasAttribute("data-state"), 0, "removeAttribute removes" );
+
+is( doc.getElementsByTagName("main").length(), 1, "document getElementsByTagName" );
+is( root.getElementsByTagName("*").length(), 6, "wildcard getElementsByTagName" );
+is( doc.getElementById("primary"), main, "getElementById" );
+is( doc.querySelector("main"), main, "querySelector tag" );
+is( doc.querySelector("#primary"), main, "querySelector id" );
+is( doc.querySelector(".beta"), main, "querySelector class" );
+ok( doc.querySelectorAll("*").length() >= 5, "querySelectorAll universal" );
+is( doc.querySelector(".missing"), null, "querySelector missing" );
+like(
+	exception( function () {
+		doc.querySelectorAll("body main");
+	} ),
+	/unsupported selector/,
+	"unsupported selector throws",
+);
+like(
+	exception( function () {
+		doc.findnodes("/html/body");
+	} ),
+	/findnodes is not implemented/,
+	"findnodes throws clear unsupported error",
+);
+like(
+	exception( function () {
+		doc.findvalue("count(*)");
+	} ),
+	/findvalue is not implemented/,
+	"findvalue throws clear unsupported error",
+);
+
+is( para.textContent(), "Hello world", "textContent concatenates text" );
+text.setData("Hi");
+is( text.data(), "Hi", "setData updates text" );
+text.setNodeValue("Hello");
+is( text.nodeValue(), "Hello", "setNodeValue updates text" );
+comment.setData("finish");
+is( comment.data(), "finish", "setData updates comment" );
+span.setTextContent(" there");
+is( span.textContent(), " there", "setTextContent element replaces children" );
+let cdata := doc.createCDATASection("<raw>");
+span.appendChild(cdata);
+is( cdata.nodeKind(), "text", "createCDATASection returns text-like node" );
+is( span.textContent(), " there<raw>", "CDATA compatibility text content" );
+span.appendChild(doc.createTextNode(""));
+span.appendChild(doc.createTextNode("!"));
+span.normalize();
+is( span.childNodes().length(), 1, "normalize merges/removes text nodes" );
+is( span.textContent(), " there<raw>!", "normalize preserves text" );
+
+let shallow := main.cloneNode(false);
+is( shallow.childNodes().length(), 0, "cloneNode false is shallow" );
+is( shallow.getAttribute("id"), "primary", "cloneNode copies attributes" );
+isnt( shallow.uniqueKey(), main.uniqueKey(), "cloneNode gets fresh id" );
+let deep := main.cloneNode(true);
+is( deep.textContent(), main.textContent(), "cloneNode true copies subtree" );
+is( main.isSameNode(main), 1, "isSameNode self" );
+is( main.isSameNode(deep), 0, "isSameNode other" );
+is( main.isEqualNode(deep), 1, "isEqualNode structural equality" );
+deep.setAttribute("id", "copy");
+is( main.isEqualNode(deep), 0, "isEqualNode detects mutation" );
+is( main.contains(para), 1, "contains descendant" );
+is( main.contains(main), 1, "contains includes self" );
+is( main.contains(root), 0, "contains excludes ancestor" );
+is( deep.ownerDocument(), doc, "clone keeps ownerDocument" );
+
+let visited := [];
+doc.visitEach( fn n -> visited.push( n.nodeName() ) );
+is( visited[0], "#document", "visitEach starts with receiver" );
+ok( visited.length() > 8, "visitEach visits descendants" );
+is( doc.findFirst( fn n -> n.nodeKind() eq "element" ), root, "findFirst excludes document" );
+is( root.findFirst( fn n -> n.nodeName() eq "main" ), main, "findFirst finds descendant" );
+
+let html := doc.toHTML(false);
+like( html, /^<!DOCTYPE html><html>/, "toHTML serializes document and doctype" );
+like( html, /<main class="alpha beta" id="primary">/, "toHTML serializes attrs sorted" );
+like( html, /Hello<span> there&lt;raw&gt;!<\/span>/, "toHTML escapes text" );
+like( html, /<!--finish-->/, "toHTML serializes comment" );
+is( doc.toXML(false), html, "toXML aliases toHTML" );
+is( doc.to_String(), html, "to_String aliases toHTML" );
+let img := doc.createElement("img");
+img.setAttribute( "alt", "\"<&>" );
+is( img.toHTML(false), "<img alt=\"&quot;&lt;&amp;&gt;\">", "void element and attr escaping" );
+
+let direct_text := new HTMLText( _node_value: "direct" );
+is( direct_text.data(), "direct", "direct text constructor works" );
+let direct_data_text := new HTMLText(
+	_data: "direct",
+	_owner_document: doc,
+);
+is( direct_data_text.data(), "direct", "direct text _data constructor works" );
+is( direct_data_text.ownerDocument(), doc, "direct text _data owner document works" );
+let direct_comment := new HTMLComment( _node_value: "direct" );
+is( direct_comment.data(), "direct", "direct comment constructor works" );
+let direct_data_comment := new HTMLComment(
+	_data: "direct",
+	_owner_document: doc,
+);
+is(
+	direct_data_comment.data(),
+	"direct",
+	"direct comment _data constructor works",
+);
+is(
+	direct_data_comment.ownerDocument(),
+	doc,
+	"direct comment _data owner document works",
+);
+let direct_doctype := new HTMLDoctype();
+is( direct_doctype.name(), "html", "direct doctype constructor works" );
 
 done_testing();

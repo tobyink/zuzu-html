@@ -1,0 +1,185 @@
+=encoding utf8
+
+=head1 NAME
+
+html/dom - DOM-like classes for parsed HTML documents.
+
+=head1 SYNOPSIS
+
+  from html/dom import HTMLDocument;
+
+  let doc := new HTMLDocument();
+  let root := doc.createElement("html");
+  doc.appendChild(root);
+
+=head1 DESCRIPTION
+
+This module is a placeholder for the DOM-like classes used by
+C<html/parser>. The finished API should be very close to the DOM-like
+classes exposed by C<std/data/xml>, with HTML-specific parsing and
+serialization behaviour.
+
+The initial scaffold exports the intended class names but does not yet
+implement DOM behaviour.
+
+=head1 EXPORTS
+
+=over
+
+=item C<HTMLNode>
+
+Base node class.
+
+=item C<HTMLDocument>
+
+Document node class.
+
+=item C<HTMLElement>
+
+Element node class.
+
+=item C<HTMLText>
+
+Text node class.
+
+=item C<HTMLComment>
+
+Comment node class.
+
+=item C<HTMLDoctype>
+
+Document type node class.
+
+=item C<DOMNode>, C<DOMDocument>, C<DOMElement>, C<DOMText>, C<DOMComment>
+
+DOM-compatible aliases for the HTML classes.
+
+=back
+
+=head1 COPYRIGHT AND LICENCE
+
+B<< html/dom >> is copyright Toby Inkster.
+
+It is free software; you may redistribute it and/or modify it under
+the terms of either the Artistic License 1.0 or the GNU General Public
+License version 2.
+
+=cut
+
+function _html_dom_unimplemented ( String name ) {
+	die "html/dom: " _ name _ " is not implemented yet";
+}
+
+class HTMLNode {
+	method nodeName () { _html_dom_unimplemented("nodeName"); }
+	method nodeType () { _html_dom_unimplemented("nodeType"); }
+	method nodeValue () { _html_dom_unimplemented("nodeValue"); }
+	method textContent () { _html_dom_unimplemented("textContent"); }
+	method uniqueKey () { _html_dom_unimplemented("uniqueKey"); }
+	method unique_id () { _html_dom_unimplemented("unique_id"); }
+	method localName () { _html_dom_unimplemented("localName"); }
+	method namespaceURI () { _html_dom_unimplemented("namespaceURI"); }
+	method nodeKind () { _html_dom_unimplemented("nodeKind"); }
+	method firstChild () { _html_dom_unimplemented("firstChild"); }
+	method lastChild () { _html_dom_unimplemented("lastChild"); }
+	method nextSibling () { _html_dom_unimplemented("nextSibling"); }
+	method previousSibling () { _html_dom_unimplemented("previousSibling"); }
+	method parentNode () { _html_dom_unimplemented("parentNode"); }
+	method ownerDocument () { _html_dom_unimplemented("ownerDocument"); }
+	method childNodes () { _html_dom_unimplemented("childNodes"); }
+	method children () { _html_dom_unimplemented("children"); }
+	method hasChildNodes () { _html_dom_unimplemented("hasChildNodes"); }
+	method normalize () { _html_dom_unimplemented("normalize"); }
+	method isSameNode ( other ) { _html_dom_unimplemented("isSameNode"); }
+	method isEqualNode ( other ) { _html_dom_unimplemented("isEqualNode"); }
+	method contains ( other ) { _html_dom_unimplemented("contains"); }
+	method setNodeValue ( value ) { _html_dom_unimplemented("setNodeValue"); }
+	method setTextContent ( value ) {
+		_html_dom_unimplemented("setTextContent");
+	}
+	method appendChild ( node ) { _html_dom_unimplemented("appendChild"); }
+	method prependChild ( node ) { _html_dom_unimplemented("prependChild"); }
+	method insertBefore ( newNode, refNode ) {
+		_html_dom_unimplemented("insertBefore");
+	}
+	method replaceChild ( newNode, oldNode ) {
+		_html_dom_unimplemented("replaceChild");
+	}
+	method removeChild ( childNode ) {
+		_html_dom_unimplemented("removeChild");
+	}
+	method remove () { _html_dom_unimplemented("remove"); }
+	method cloneNode ( deep? ) { _html_dom_unimplemented("cloneNode"); }
+	method visitEach ( callback ) { _html_dom_unimplemented("visitEach"); }
+	method findFirst ( callback ) { _html_dom_unimplemented("findFirst"); }
+	method findnodes ( path ) { _html_dom_unimplemented("findnodes"); }
+	method findvalue ( path ) { _html_dom_unimplemented("findvalue"); }
+	method querySelector ( selector ) {
+		_html_dom_unimplemented("querySelector");
+	}
+	method querySelectorAll ( selector ) {
+		_html_dom_unimplemented("querySelectorAll");
+	}
+	method toHTML ( pretty? ) { _html_dom_unimplemented("toHTML"); }
+	method toXML ( pretty? ) { return self.toHTML(pretty); }
+	method to_String () { return self.toHTML(false); }
+}
+
+class HTMLDocument extends HTMLNode {
+	method documentElement () {
+		_html_dom_unimplemented("documentElement");
+	}
+	method createElement ( name ) { _html_dom_unimplemented("createElement"); }
+	method createTextNode ( text ) {
+		_html_dom_unimplemented("createTextNode");
+	}
+	method createComment ( text ) { _html_dom_unimplemented("createComment"); }
+	method createDoctype ( name, publicId?, systemId? ) {
+		_html_dom_unimplemented("createDoctype");
+	}
+	method getElementsByTagName ( name ) {
+		_html_dom_unimplemented("getElementsByTagName");
+	}
+	method getElementById ( id ) { _html_dom_unimplemented("getElementById"); }
+}
+
+class HTMLElement extends HTMLNode {
+	method tagName () { _html_dom_unimplemented("tagName"); }
+	method id () { _html_dom_unimplemented("id"); }
+	method setId ( value ) { _html_dom_unimplemented("setId"); }
+	method getElementsByTagName ( name ) {
+		_html_dom_unimplemented("getElementsByTagName");
+	}
+	method getAttribute ( name ) { _html_dom_unimplemented("getAttribute"); }
+	method setAttribute ( name, value ) {
+		_html_dom_unimplemented("setAttribute");
+	}
+	method hasAttribute ( name ) { _html_dom_unimplemented("hasAttribute"); }
+	method removeAttribute ( name ) {
+		_html_dom_unimplemented("removeAttribute");
+	}
+	method attributeNames () { _html_dom_unimplemented("attributeNames"); }
+	method attributes () { _html_dom_unimplemented("attributes"); }
+}
+
+class HTMLText extends HTMLNode {
+	method data () { _html_dom_unimplemented("data"); }
+	method setData ( value ) { _html_dom_unimplemented("setData"); }
+}
+
+class HTMLComment extends HTMLNode {
+	method data () { _html_dom_unimplemented("data"); }
+	method setData ( value ) { _html_dom_unimplemented("setData"); }
+}
+
+class HTMLDoctype extends HTMLNode {
+	method name () { _html_dom_unimplemented("name"); }
+	method publicId () { _html_dom_unimplemented("publicId"); }
+	method systemId () { _html_dom_unimplemented("systemId"); }
+}
+
+class DOMNode extends HTMLNode {}
+class DOMDocument extends HTMLDocument {}
+class DOMElement extends HTMLElement {}
+class DOMText extends HTMLText {}
+class DOMComment extends HTMLComment {}

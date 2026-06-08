@@ -1,0 +1,127 @@
+=encoding utf8
+
+=head1 NAME
+
+html/parser - HTML5 parser entry points.
+
+=head1 SYNOPSIS
+
+  from html/parser import HTML;
+
+  let doc := HTML.parse("<!doctype html><title>Example</title>");
+
+=head1 DESCRIPTION
+
+This module is the planned main entry point for a ZuzuScript
+implementation of the HTML parsing algorithm defined in chapter 13 of
+the WHATWG HTML specification.
+
+The distribution currently contains only a scaffold. Parser methods
+exist so callers and tests can agree on the intended API, but they throw
+clear not-implemented errors until the parser phases in
+C<DEVELOPMENT_PLAN.md> are completed.
+
+=head1 EXPORTS
+
+=over
+
+=item C<HTML>
+
+Static parser facade.
+
+=over
+
+=item C<< HTML.parse(String html, ... options) -> HTMLDocument >>
+
+Parse a full HTML document.
+
+=item C<< HTML.parse_fragment(String html, ... options) >>
+
+Parse an HTML fragment using an optional context element supplied in
+C<options>.
+
+=item C<< HTML.load(Path path, ... options) -> HTMLDocument >>
+
+Read UTF-8 from a C<std/io> C<Path> and parse it.
+
+=item C<< HTML.dump(Path path, HTMLDocument|HTMLNode value, Bool pretty?) >>
+
+Serialize C<value> as HTML and write it to C<path>.
+
+=back
+
+=item C<HTMLParser>
+
+Reusable parser object with matching instance methods.
+
+=back
+
+=head1 COPYRIGHT AND LICENCE
+
+B<< html/parser >> is copyright Toby Inkster.
+
+It is free software; you may redistribute it and/or modify it under
+the terms of either the Artistic License 1.0 or the GNU General Public
+License version 2.
+
+=cut
+
+from html/dom import
+	DOMComment,
+	DOMDocument,
+	DOMElement,
+	DOMNode,
+	DOMText,
+	HTMLComment,
+	HTMLDocument,
+	HTMLElement,
+	HTMLNode,
+	HTMLText;
+
+function _html_parser_unimplemented ( String name ) {
+	die "html/parser: " _ name _ " is not implemented yet";
+}
+
+class HTMLParser {
+	method parse ( String html, ... PairList options ) {
+		_html_parser_unimplemented("parse");
+	}
+
+	method parse_string ( String html, ... PairList options ) {
+		return self.parse( html, ...options );
+	}
+
+	method parse_fragment ( String html, ... PairList options ) {
+		_html_parser_unimplemented("parse_fragment");
+	}
+
+	method load ( path, ... PairList options ) {
+		_html_parser_unimplemented("load");
+	}
+
+	method dump ( path, value, Boolean pretty := false ) {
+		_html_parser_unimplemented("dump");
+	}
+}
+
+class HTML {
+	static method parse ( String html, ... PairList options ) {
+		return new HTMLParser().parse( html, ...options );
+	}
+
+	static method parse_string ( String html, ... PairList options ) {
+		return self.parse( html, ...options );
+	}
+
+	static method parse_fragment ( String html, ... PairList options ) {
+		return new HTMLParser().parse_fragment( html, ...options );
+	}
+
+	static method load ( path, ... PairList options ) {
+		return new HTMLParser().load( path, ...options );
+	}
+
+	static method dump ( path, value, Boolean pretty := false ) {
+		return new HTMLParser().dump( path, value, pretty );
+	}
+}

@@ -1,0 +1,14 @@
+from html/parser import HTML, HTMLParser;
+from test/more import *;
+
+ok( HTML ≢ null, "HTML export is available" );
+ok( HTMLParser ≢ null, "HTMLParser export is available" );
+like(
+	exception( function() {
+		HTML.parse("<!doctype html><title>Example</title>");
+	} ),
+	/not implemented yet/,
+	"HTML.parse is a clear placeholder",
+);
+
+done_testing();

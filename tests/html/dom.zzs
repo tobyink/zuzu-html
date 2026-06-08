@@ -1,0 +1,25 @@
+from html/dom import
+	DOMComment,
+	DOMDocument,
+	DOMElement,
+	DOMNode,
+	DOMText,
+	HTMLComment,
+	HTMLDocument,
+	HTMLElement,
+	HTMLNode,
+	HTMLText;
+from test/more import *;
+
+ok( HTMLNode ≢ null, "HTMLNode export is available" );
+ok( HTMLDocument ≢ null, "HTMLDocument export is available" );
+ok( HTMLElement ≢ null, "HTMLElement export is available" );
+ok( HTMLText ≢ null, "HTMLText export is available" );
+ok( HTMLComment ≢ null, "HTMLComment export is available" );
+ok( DOMNode ≢ null, "DOMNode alias export is available" );
+ok( DOMDocument ≢ null, "DOMDocument alias export is available" );
+ok( DOMElement ≢ null, "DOMElement alias export is available" );
+ok( DOMText ≢ null, "DOMText alias export is available" );
+ok( DOMComment ≢ null, "DOMComment alias export is available" );
+
+done_testing();

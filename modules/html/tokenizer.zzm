@@ -13,32 +13,32 @@ html/tokenizer - HTML input stream and tokenizer.
 
 =head1 DESCRIPTION
 
-This module implements the Phase 2 tokenizer layer for C<html/parser>.
-It accepts already-decoded ZuzuScript strings, normalizes line endings,
+This module implements the tokenizer layer for C<html/parser>. It
+accepts already-decoded ZuzuScript strings, normalizes line endings,
 tracks source position, emits HTML tokenizer tokens, and records
 non-fatal parse errors with line, column, offset, and tokenizer state.
 
 It intentionally does not build a DOM tree. C<html/parser> re-exports
-these classes for focused tokenizer tests and for the tree builder. In
-Phase 6 the tokenizer also exposes C<setAllowCDATA> and C<allowCDATA> so
-the tree builder can recognise CDATA sections only while processing SVG
-or MathML foreign content.
+these classes for focused tokenizer tests and for the tree builder. The
+tokenizer exposes C<setAllowCDATA> and C<allowCDATA> so the tree builder
+can recognise CDATA sections only while processing SVG or MathML foreign
+content.
 
 =head1 CHARACTER REFERENCES
 
 Numeric decimal and hexadecimal references are implemented, including
 HTML replacement handling for null, surrogate, out-of-range, and C1
 Windows-1252 values. The named-reference table is deliberately partial
-in Phase 2 and covers the common entities needed by the focused
-tokenizer suite: C<amp>, C<lt>, C<gt>, C<quot>, C<apos>, C<nbsp>,
-C<copy>, C<reg>, and C<not>, with their semicolon forms and the legacy
-no-semicolon forms used by HTML tokenization.
+and covers the common entities needed by the focused tokenizer suite:
+C<amp>, C<lt>, C<gt>, C<quot>, C<apos>, C<nbsp>, C<copy>, C<reg>, and
+C<not>, with their semicolon forms and the legacy no-semicolon forms
+used by HTML tokenization.
 
 =head1 NON-GOALS
 
 There is no DOM tree construction inside this module, no html5lib
 C<.dat> harness, full CSS selector support, or full WHATWG
-named-character-reference table in this phase.
+named-character-reference table.
 
 =head1 COPYRIGHT AND LICENCE
 

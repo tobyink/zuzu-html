@@ -6,30 +6,42 @@ html/parser - HTML5 parser entry points.
 
 =head1 SYNOPSIS
 
-  from html/parser import HTML;
+  from html/parser import HTML, HTMLParser;
 
   let doc := HTML.parse("<!doctype html><title>Example</title>");
+  let fragment := HTML.parse_fragment("<tr><td>x", context: "table");
+
+  let parser := new HTMLParser();
+  parser.parse("<p>Reusable</p>");
+  let errors := parser.errors();
 
 =head1 DESCRIPTION
 
-This module is the planned main entry point for a ZuzuScript
-implementation of the HTML parsing algorithm defined in chapter 13 of
-the WHATWG HTML specification.
+This module is the main public entry point for the pure ZuzuScript HTML
+parser. It parses full documents and context-sensitive fragments into
+the DOM-like classes from C<html/dom>.
 
-The distribution currently contains the Phase 1 DOM core, the Phase 2
-input stream and tokenizer, the Phase 3 full-document tree-builder
-framework, the Phase 4 in-body rules, the Phase 5 specialised
-table/select/template/frameset modes, and the Phase 6 SVG/MathML
-foreign-content rules. C<HTML.parse> and
-C<HTMLParser.parse> now build C<HTMLDocument> trees for ordinary body
-content including paragraph/list/heading recovery, active formatting
-reconstruction, adoption-agency recovery, forms, buttons, void
-elements, plaintext, table foster parenting, select recovery,
-template content, framesets, SVG/MathML namespaces, adjusted foreign
-names, foreign attributes, integration points, and foreign CDATA
-sections. Phase 7 adds C<HTML.parse_fragment> for context-sensitive
-fragments and the parser scripting flag. File loading and dumping
-remain deferred.
+The parser implements the document and fragment tree-building behaviour
+covered by the focused test suites and the claimed html5lib
+tree-construction support level: document setup, in-body recovery,
+active formatting reconstruction, adoption-agency recovery, forms,
+buttons, void elements, plaintext, table foster parenting, select
+recovery, template content, framesets, SVG/MathML namespaces, adjusted
+foreign names, foreign attributes, integration points, and foreign CDATA
+sections.
+
+HTML parse errors are collected by default. Pass C<strict: true> to
+throw after parsing if any parse errors were recorded. Strict mode does
+not change recovery behaviour; it only turns a non-empty parse-error
+list into an exception.
+
+The C<scripting> option defaults to false. It affects C<noscript>
+tokenization and html5lib scripting-mode variants. It does not execute
+scripts or support script-driven DOM mutation during parsing.
+
+C<HTML.load> and C<HTML.dump> are public methods that currently throw
+clear unimplemented errors. Use C<HTML.parse> and C<toHTML> with explicit
+C<std/io> file handling in application code.
 
 =head1 EXPORTS
 
@@ -43,28 +55,41 @@ Static parser facade.
 
 =item C<< HTML.parse(String html, ... options) -> HTMLDocument >>
 
-Parse a full HTML document.
+Parse a full HTML document and return an C<HTMLDocument>. Options:
+C<strict> and C<scripting>.
+
+=item C<< HTML.parse_string(String html, ... options) -> HTMLDocument >>
+
+Alias for C<HTML.parse>.
 
 =item C<< HTML.parse_fragment(String html, ... options) -> HTMLDocumentFragment >>
 
-Parse an HTML fragment. C<context> defaults to C<div> and may be a tag
-name string or an C<HTMLElement>/C<HTMLTemplateElement>. C<scripting>
-defaults to false and controls C<noscript> tokenization. C<strict>, when
-true, throws after parsing if parse errors were recorded.
+Parse an HTML fragment and return an C<HTMLDocumentFragment>. C<context>
+defaults to C<div>. It may be a tag-name string, the special strings
+C<svg> or C<math>, or an C<HTMLElement>/C<HTMLTemplateElement>, including
+elements created with C<createElementNS> for SVG or MathML contexts.
+Options: C<context>, C<strict>, and C<scripting>.
 
 =item C<< HTML.load(Path path, ... options) -> HTMLDocument >>
 
-Read UTF-8 from a C<std/io> C<Path> and parse it.
+Not implemented. This method currently throws C<html/parser: load is not
+implemented yet>.
 
 =item C<< HTML.dump(Path path, HTMLDocument|HTMLNode value, Bool pretty?) >>
 
-Serialize C<value> as HTML and write it to C<path>.
+Not implemented. This method currently throws C<html/parser: dump is not
+implemented yet>.
 
 =back
 
 =item C<HTMLParser>
 
-Reusable parser object with matching instance methods.
+Reusable parser object with instance methods C<parse>, C<parse_string>,
+C<parse_fragment>, C<load>, C<dump>, C<document>, C<errors>, and
+C<parseErrors>. C<document()> returns the last parsed full document, or
+the staging document from the last fragment parse. C<errors()> returns a
+copy of the most recent parse-error list. C<parseErrors()> is an alias
+for C<errors()>.
 
 =item C<HTMLInputStream>, C<HTMLTokenizer>, C<HTMLToken>,
 C<HTMLParseError>, C<HTMLNamedCharacterReferences>

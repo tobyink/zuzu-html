@@ -16,14 +16,17 @@ html/dom - DOM-like classes for parsed HTML documents.
 
 =head1 DESCRIPTION
 
-This module provides the Phase 1 pure-ZuzuScript mutable DOM core used by
+This module provides the pure ZuzuScript mutable DOM core used by
 C<html/parser>. It intentionally mirrors the practical DOM-like API
 provided by C<std/data/xml>: construction, traversal, mutation,
 attributes, simple selector lookup, cloning, equality, tree walking, and
-serialization. Phase 5 adds the minimal C<template> DOM shape needed for
-HTML tree construction: C<HTMLTemplateElement> owns an
-C<HTMLDocumentFragment> returned by C<content()>. Phase 6 makes elements
-and attributes namespace-aware for HTML, SVG, and MathML foreign content.
+serialization.
+
+C<HTMLTemplateElement> owns an C<HTMLDocumentFragment> returned by
+C<content()>. Parsed template children live in that fragment rather than
+as direct children of the template element. Elements and attributes are
+namespace-aware for HTML, SVG, MathML, XLink, XML, and XMLNS data used by
+the HTML tree builder.
 
 Documents may be created manually through constructors and
 C<HTMLDocument> factory methods, or by C<html/parser>.
@@ -38,6 +41,17 @@ Base node class. It implements shared metadata, traversal, mutation,
 text content, cloning, equality, tree walking, simple selector lookup,
 serialization, and unsupported XPath compatibility methods.
 
+Core methods include C<nodeName>, C<nodeType>, C<nodeValue>,
+C<setNodeValue>, C<nodeKind>, C<uniqueKey>, C<unique_id>, C<localName>,
+C<namespaceURI>, C<firstChild>, C<lastChild>, C<nextSibling>,
+C<previousSibling>, C<parentNode>, C<ownerDocument>, C<childNodes>,
+C<children>, C<hasChildNodes>, C<appendChild>, C<prependChild>,
+C<insertBefore>, C<replaceChild>, C<removeChild>, C<remove>,
+C<textContent>, C<setTextContent>, C<normalize>, C<cloneNode>,
+C<isSameNode>, C<isEqualNode>, C<contains>, C<querySelectorAll>,
+C<querySelector>, C<findnodes>, C<findvalue>, C<visitEach>,
+C<findFirst>, C<toHTML>, C<toXML>, and C<to_String>.
+
 =item C<HTMLDocument>
 
 Document node class. It adds C<documentElement>, node factories,
@@ -45,23 +59,36 @@ C<getElementsByTagName>, and C<getElementById>. A document may contain
 one doctype, one element root, and comments. Text directly under a
 document is rejected.
 
+Factory methods are C<createElement>, C<createElementNS>,
+C<createTextNode>, C<createComment>, C<createDoctype>, and
+C<createCDATASection>. C<createElement("template")> returns an
+C<HTMLTemplateElement>. C<createElementNS> should be used for SVG and
+MathML elements.
+
 =item C<HTMLElement>
 
 Element node class. It adds C<tagName>, C<id>, C<setId>,
 C<getAttribute>, C<setAttribute>, C<hasAttribute>,
 C<removeAttribute>, C<attributeNames>, C<attributes>, namespaced
 attribute methods, C<attributeRecords>, and descendant
-C<getElementsByTagName>. C<namespaceURI> and C<localName> are
-authoritative for HTML, SVG, and MathML elements.
+C<getElementsByTagName>. Namespaced attribute methods are
+C<getAttributeNS>, C<setAttributeNS>, C<hasAttributeNS>, and
+C<removeAttributeNS>. C<namespaceURI> and C<localName> are authoritative
+for HTML, SVG, and MathML elements.
 
 =item C<HTMLTemplateElement>, C<HTMLDocumentFragment>
 
 Template elements and their content fragments. C<HTMLDocument>'s
 C<createElement("template")> returns an C<HTMLTemplateElement>.
+C<HTMLTemplateElement.content()> returns the fragment containing parsed
+or manually inserted template contents. C<HTMLDocumentFragment> supports
+the normal container operations and C<getElementsByTagName>.
 
 =item C<HTMLText>, C<HTMLComment>, C<HTMLDoctype>
 
-Text, comment, and doctype node classes.
+Text, comment, and doctype node classes. Text and comments expose
+C<data> and C<setData>. Doctypes expose C<name>, C<publicId>, and
+C<systemId>.
 
 =item C<DOMNode>, C<DOMDocument>, C<DOMElement>, C<DOMText>,
 C<DOMComment>, C<DOMDoctype>

@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-html/treebuilder - Phase 3 HTML tree construction framework.
+html/treebuilder - HTML tree construction framework.
 
 =head1 SYNOPSIS
 
@@ -14,14 +14,14 @@ html/treebuilder - Phase 3 HTML tree construction framework.
 
 =head1 DESCRIPTION
 
-This module implements the full-document tree-builder layer for
-C<html/parser>. It connects the Phase 2 tokenizer to the Phase 1
-C<html/dom> classes and covers the initial, before html, before head,
-in head, text, after head, in body, table, select, template, frameset,
-after body, after after body, and fragment insertion-mode setup. Phase
-6 also routes SVG and MathML foreign content through namespace-aware
-insertion, adjusted SVG/MathML names, foreign XLink/XML/XMLNS
-attributes, HTML/MathML integration points, and foreign CDATA sections.
+This module implements the tree-builder layer for C<html/parser>. It
+connects the tokenizer to the C<html/dom> classes and covers the
+initial, before html, before head, in head, text, after head, in body,
+table, select, template, frameset, after body, after after body, and
+fragment insertion-mode setup. It also routes SVG and MathML foreign
+content through namespace-aware insertion, adjusted SVG/MathML names,
+foreign XLink/XML/XMLNS attributes, HTML/MathML integration points, and
+foreign CDATA sections.
 
 It deliberately does not implement script execution, file load/dump
 helpers, or the html5lib C<.dat> harness.

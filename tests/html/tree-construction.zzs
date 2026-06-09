@@ -1,0 +1,338 @@
+from html/parser import
+	HTMLDocument,
+	HTMLParser,
+	HTMLTreeTestSerializer,
+	MATHML_NAMESPACE_URI,
+	SVG_NAMESPACE_URI;
+from std/io import Path;
+from std/string import index, join, replace, split, starts_with, substr, trim;
+from test/more import *;
+
+requires_capability("fs");
+
+let FIXTURE_ROOT := "tobyink-dists/html/tests/html5lib/tree-construction/";
+let XFAIL_MANIFEST := "tobyink-dists/html/tests/html/tree-construction-xfails.zzm";
+
+function _known_marker ( String line ) {
+	return line eq "#data"
+		or line eq "#errors"
+		or line eq "#new-errors"
+		or line eq "#document-fragment"
+		or line eq "#script-on"
+		or line eq "#script-off"
+		or line eq "#document";
+}
+
+function _relative_fixture ( path ) {
+	let text := "" _ path;
+	return substr( text, length FIXTURE_ROOT )
+		if starts_with( text, FIXTURE_ROOT );
+	return text;
+}
+
+function _normalise_fixture_text ( String text ) {
+	let normal := replace( text, "\r\n", "\n", "g" );
+	normal := replace( normal, "\r", "\n", "g" );
+	return normal;
+}
+
+function _copy_lines ( Array lines ) {
+	let out := [];
+	for ( let line in lines ) {
+		out.push(line);
+	}
+	return out;
+}
+
+function _join_document_lines ( Array lines ) {
+	let copy := _copy_lines(lines);
+	while ( copy.length() > 0 and copy[copy.length() - 1] eq "" ) {
+		copy.pop();
+	}
+	return join( "\n", copy );
+}
+
+function _finish_case ( Array cases, current ) {
+	return true if current ≡ null;
+	current{data} := join( "\n", current{data_lines} );
+	current{expected_tree} := _join_document_lines(current{document_lines});
+	cases.push(current);
+	return true;
+}
+
+function _new_case ( String relative, Number case_number ) {
+	return {
+		file: relative,
+		case_number: case_number,
+		data_lines: [],
+		document_lines: [],
+		expected_error_count: 0,
+		fragment_context: null,
+		script_modes: [],
+		data: "",
+		expected_tree: "",
+	};
+}
+
+function _append_to_section ( current, String section, String line ) {
+	if ( current ≡ null ) {
+		return true;
+	}
+	if ( section eq "data" ) {
+		current{data_lines}.push(line);
+	}
+	else if ( section eq "errors" ) {
+		current{expected_error_count}++ if trim(line) ne "";
+	}
+	else if ( section eq "document-fragment" ) {
+		current{fragment_context} := trim(line) if trim(line) ne "";
+	}
+	else if ( section eq "document" ) {
+		current{document_lines}.push(line);
+	}
+	return true;
+}
+
+function _parse_fixture ( path ) {
+	let relative := _relative_fixture(path);
+	let text := _normalise_fixture_text(path.slurp_utf8());
+	let lines := split( text, "\n" );
+	let cases := [];
+	let current := null;
+	let section := "";
+	let case_number := 0;
+
+	for ( let line in lines ) {
+		if ( _known_marker(line) ) {
+			if ( line eq "#data" ) {
+				_finish_case( cases, current );
+				case_number++;
+				current := _new_case( relative, case_number );
+				section := "data";
+			}
+			else if ( line eq "#errors" ) {
+				section := "errors";
+			}
+			else if ( line eq "#new-errors" ) {
+				section := "errors";
+			}
+			else if ( line eq "#document-fragment" ) {
+				section := "document-fragment";
+			}
+			else if ( line eq "#script-on" ) {
+				current{script_modes}.push("script-on") if current ≢ null;
+				section := "";
+			}
+			else if ( line eq "#script-off" ) {
+				current{script_modes}.push("script-off") if current ≢ null;
+				section := "";
+			}
+			else if ( line eq "#document" ) {
+				section := "document";
+			}
+		}
+		else {
+			_append_to_section( current, section, line );
+		}
+	}
+	_finish_case( cases, current );
+	return cases;
+}
+
+function _fixture_paths () {
+	let paths := [];
+	for ( let path in Path.glob(FIXTURE_ROOT _ "*.dat") ) {
+		paths.push(path);
+	}
+	for ( let path in Path.glob(FIXTURE_ROOT _ "scripted/*.dat") ) {
+		paths.push(path);
+	}
+	return paths.sort( fn ( a, b ) -> ( "" _ a ) cmp ( "" _ b ) );
+}
+
+function _load_xfails () {
+	let out := {};
+	let path := new Path(XFAIL_MANIFEST);
+	return out unless path.exists();
+
+	let marker := "// xfail ";
+	for ( let line in split( _normalise_fixture_text(path.slurp_utf8()), "\n" ) ) {
+		next unless starts_with( line, marker );
+		let rest := substr( line, length marker );
+		let tab := index( rest, "\t" );
+		if ( tab < 0 ) {
+			die "Malformed xfail manifest line: " _ line;
+		}
+		out{(substr( rest, 0, tab ))} := substr( rest, tab + 1 );
+	}
+	return out;
+}
+
+function _context_for_case ( test_case ) {
+	let context := test_case{fragment_context};
+	return null if context ≡ null;
+
+	let parts := split( context, " " );
+	if ( parts.length() == 2 and parts[0] eq "svg" ) {
+		return ( new HTMLDocument() ).createElementNS( SVG_NAMESPACE_URI, parts[1] );
+	}
+	if ( parts.length() == 2 and parts[0] eq "math" ) {
+		return ( new HTMLDocument() ).createElementNS( MATHML_NAMESPACE_URI, parts[1] );
+	}
+	return context;
+}
+
+function _context_label ( test_case ) {
+	return test_case{fragment_context} ≡ null
+		? "document"
+		: "fragment " _ test_case{fragment_context};
+}
+
+function _case_key ( test_case, String script_mode ) {
+	return test_case{file} _ "#" _ test_case{case_number} _ "#" _ script_mode;
+}
+
+function _script_modes_for_case ( test_case ) {
+	let out := [];
+	if ( test_case{script_modes}.length() == 0 ) {
+		out.push("script-off");
+		out.push("script-on");
+	}
+	else {
+		for ( let mode in test_case{script_modes} ) {
+			out.push(mode);
+		}
+	}
+	return out;
+}
+
+function _parse_case ( test_case, String script_mode ) {
+	let parser := new HTMLParser();
+	let actual_node := null;
+	let scripting := script_mode eq "script-on";
+	let error := exception( function () {
+		let context := _context_for_case(test_case);
+		if ( context ≡ null ) {
+			actual_node := parser.parse( test_case{data}, scripting: scripting );
+		}
+		else {
+			actual_node := parser.parse_fragment(
+				test_case{data},
+				context: context,
+				scripting: scripting,
+			);
+		}
+	} );
+
+	if ( error ≢ null ) {
+		return {
+			tree: "[exception] " _ error,
+			error_count: -1,
+		};
+	}
+
+	let actual_tree := "";
+	let serializer_error := exception( function () {
+		actual_tree := HTMLTreeTestSerializer.serialize(actual_node);
+	} );
+	if ( serializer_error ≢ null ) {
+		return {
+			tree: "[serializer exception] " _ serializer_error,
+			error_count: parser.errors().length(),
+		};
+	}
+
+	return {
+		tree: actual_tree,
+		error_count: parser.errors().length(),
+	};
+}
+
+function _diag_unexpected_failure (
+	test_case,
+	String script_mode,
+	String actual_tree,
+	Number actual_error_count,
+) {
+	diag( "fixture: " _ test_case{file} );
+	diag( "case: " _ test_case{case_number} );
+	diag( "context: " _ _context_label(test_case) );
+	diag( "scripting: " _ script_mode );
+	diag( "input data:\n" _ test_case{data} );
+	diag( "expected tree:\n" _ test_case{expected_tree} );
+	diag( "actual tree:\n" _ actual_tree );
+	diag(
+		"expected parse-error count: "
+			_ test_case{expected_error_count}
+			_ "; actual parse-error count: "
+			_ actual_error_count,
+	);
+	return true;
+}
+
+let xfails := _load_xfails();
+let parsed_cases := 0;
+let variants := 0;
+let xfailed_variants := 0;
+let todo_passes := 0;
+let error_count_mismatches := 0;
+let unexpected_failures := 0;
+
+for ( let path in _fixture_paths() ) {
+	let cases := _parse_fixture(path);
+	parsed_cases += cases.length();
+	for ( let test_case in cases ) {
+		for ( let script_mode in _script_modes_for_case(test_case) ) {
+			variants++;
+			let key := _case_key( test_case, script_mode );
+			let reason := xfails.exists(key) ? xfails.get(key) : null;
+			xfailed_variants++ if reason ≢ null;
+
+			let actual := _parse_case( test_case, script_mode );
+			let matched := actual{tree} eq test_case{expected_tree};
+			error_count_mismatches++
+				if actual{error_count} != test_case{expected_error_count};
+			todo_passes++ if matched and reason ≢ null;
+
+			_diag_unexpected_failure(
+				test_case,
+				script_mode,
+				actual{tree},
+				actual{error_count},
+			) if not matched and reason ≡ null;
+			unexpected_failures++ if not matched and reason ≡ null;
+
+			if ( reason ≢ null ) {
+				todo( true, reason, function () {
+					ok(
+						matched,
+						"html5lib tree " _ key _ " (" _ _context_label(test_case) _ ")",
+					);
+				} );
+			}
+			else {
+				ok(
+					matched,
+					"html5lib tree " _ key _ " (" _ _context_label(test_case) _ ")",
+				);
+			}
+		}
+	}
+}
+
+diag(
+	"html5lib tree-construction variants: "
+		_ variants
+		_ "; parsed cases: "
+		_ parsed_cases
+		_ "; xfailed variants: "
+		_ xfailed_variants
+		_ "; TODO passes: "
+		_ todo_passes
+		_ "; parse-error-count mismatches: "
+		_ error_count_mismatches
+		_ "; unexpected failures: "
+		_ unexpected_failures,
+);
+
+done_testing();

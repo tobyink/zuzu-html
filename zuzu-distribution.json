@@ -7,6 +7,7 @@
 	"status": "unstable",
 	"abstract": "HTML5 parser and DOM-like tree classes",
 	"dependencies": {
+		"std/io": "0",
 		"std/string": "0"
 	}
 }

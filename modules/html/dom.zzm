@@ -150,6 +150,10 @@ function _html_dom_name ( value ) {
 	return name;
 }
 
+function _html_dom_doctype_name ( value ) {
+	return lc(trim(_html_dom_string(value)));
+}
+
 function _html_dom_qname_parts ( value ) {
 	let qname := trim(_html_dom_string(value));
 	_html_dom_die("empty qualified name") if qname eq "";
@@ -1339,7 +1343,7 @@ class HTMLDoctype extends HTMLNode {
 	let String _system_id := "";
 
 	method __build__ () {
-		_name := _html_dom_name(_name);
+		_name := _html_dom_doctype_name(_name);
 		_public_id := _html_dom_string(_public_id);
 		_system_id := _html_dom_string(_system_id);
 		self._configure_node( "doctype", _name );
@@ -1427,7 +1431,7 @@ class HTMLDocument extends HTMLNode {
 
 	method createDoctype ( name := "html", publicId := "", systemId := "" ) {
 		return new HTMLDoctype(
-			_name: _html_dom_name(name),
+			_name: _html_dom_doctype_name(name),
 			_public_id: _html_dom_string(publicId),
 			_system_id: _html_dom_string(systemId),
 			_owner_document: self,

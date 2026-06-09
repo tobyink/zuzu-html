@@ -529,6 +529,24 @@ class HTMLTreeBuilder {
 		return node.namespaceURI() ne HTML_NAMESPACE_URI;
 	}
 
+	method _foreign_fragment_context_only () {
+		return _fragment_parsing
+			and _open_elements.length() == 1
+			and _fragment_context_element ≢ null
+			and _fragment_context_element.nodeKind() eq "element"
+			and _fragment_context_element.namespaceURI() ne HTML_NAMESPACE_URI;
+	}
+
+	method _fragment_context_is_table_cell () {
+		return _fragment_parsing
+			and _fragment_context_element ≢ null
+			and _fragment_context_element.nodeKind() eq "element"
+			and _fragment_context_element.namespaceURI() eq HTML_NAMESPACE_URI
+			and [ "td", "th" ].contains(lc(_fragment_context_element.localName()))
+			and not self.hasElementInTableScope("td")
+			and not self.hasElementInTableScope("th");
+	}
+
 	method _is_mathml_text_integration_point ( node ) {
 		return false unless self._is_mathml_ns(node);
 		return [ "mi", "mo", "mn", "ms", "mtext" ].contains(node.localName());
@@ -1297,6 +1315,10 @@ class HTMLTreeBuilder {
 		) {
 			return self._process_foreign_content(token);
 		}
+		return self._process_html_token(token);
+	}
+
+	method _process_html_token ( HTMLToken token ) {
 		switch ( _insertion_mode: eq ) {
 			case "initial": return self._mode_initial(token);
 			case "before html": return self._mode_before_html(token);
@@ -1368,6 +1390,8 @@ class HTMLTreeBuilder {
 					"HTML start tag exits foreign content",
 					token,
 				);
+				return self._process_html_token(token)
+					if self._foreign_fragment_context_only();
 				self._pop_until_html_or_integration_point();
 				return true;
 			}
@@ -1386,6 +1410,8 @@ class HTMLTreeBuilder {
 					"HTML end tag exits foreign content",
 					token,
 				);
+				return self._process_html_token(token)
+					if self._foreign_fragment_context_only();
 				self._pop_until_html_or_integration_point();
 				return true;
 			}
@@ -1876,8 +1902,7 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		if ( name eq "html" ) {
-			self._close_body(token);
-			return true;
+			return self._close_body(token);
 		}
 		if ( name eq "p" ) {
 			self._close_p(token);
@@ -2075,6 +2100,9 @@ class HTMLTreeBuilder {
 		}
 		if ( token.type() eq "EndTag" and token.tagName() eq "template" ) {
 			return self._end_template(token);
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "html" ) {
+			return false;
 		}
 		if ( token.type() eq "EOF" ) {
 			return self._mode_in_body(token);
@@ -2301,6 +2329,14 @@ class HTMLTreeBuilder {
 			token.type() eq "StartTag" and
 			_html_tb_table_cell_element(token.tagName())
 		) {
+			if ( self._fragment_context_is_table_cell() ) {
+				self.parseError(
+					"ignored-cell-start-tag-in-cell-fragment",
+					"Ignored cell start tag in cell fragment",
+					token,
+				);
+				return false;
+			}
 			self._close_cell(token);
 			return true;
 		}
@@ -2311,8 +2347,29 @@ class HTMLTreeBuilder {
 			or ( token.type() eq "EndTag" and
 				[ "table", "tbody", "tfoot", "thead", "tr" ].contains(token.tagName()) )
 		) {
+			if (
+				self._fragment_context_is_table_cell()
+			) {
+				self.parseError(
+					"ignored-table-token-in-cell-fragment",
+					"Ignored table token in cell fragment",
+					token,
+				);
+				return false;
+			}
 			self._close_cell(token);
 			return true;
+		}
+		if (
+			token.type() eq "EndTag" and
+			[ "body", "caption", "col", "colgroup", "html" ].contains(token.tagName())
+		) {
+			self.parseError(
+				"ignored-end-tag-in-cell",
+				"Ignored end tag in cell",
+				token,
+			);
+			return false;
 		}
 		return self._mode_in_body(token);
 	}
@@ -2652,7 +2709,7 @@ class HTMLTreeBuilder {
 	method _close_body ( HTMLToken token ) {
 		if ( not self.hasElementInScope("body") ) {
 			self.parseError( "body-not-in-scope", "Body not in scope", token );
-			return self;
+			return false;
 		}
 		for ( let element in _open_elements ) {
 			if (
@@ -2668,7 +2725,7 @@ class HTMLTreeBuilder {
 			}
 		}
 		self.switchTo("after body");
-		return self;
+		return true;
 	}
 
 	method _close_named_element ( HTMLToken token ) {
@@ -3090,7 +3147,7 @@ class HTMLTreeBuilder {
 
 	method appendDoctype ( HTMLToken token ) {
 		_document.appendChild(_document.createDoctype(
-			token.tagName() eq "" ? "html" : token.tagName(),
+			token.tagName(),
 			token.publicId() ≡ null ? "" : token.publicId(),
 			token.systemId() ≡ null ? "" : token.systemId(),
 		));
@@ -3140,6 +3197,29 @@ class HTMLTreeTestSerializer {
 		return record{qualifiedName};
 	}
 
+	static method _sorted_attribute_records ( node ) {
+		let out := [];
+		for ( let record in node.attributeRecords() ) {
+			out.push(record);
+		}
+		return out.sort( function ( a, b ) {
+			let al := HTMLTreeTestSerializer._attribute_label(a);
+			let bl := HTMLTreeTestSerializer._attribute_label(b);
+			return a{value} cmp b{value} if al eq bl;
+			return al cmp bl;
+		} );
+	}
+
+	static method _doctype_label ( node ) {
+		let out := "<!DOCTYPE " _ node.name();
+		if ( node.publicId() ne "" or node.systemId() ne "" ) {
+			out _= " \"" _ _html_tb_quote_text(node.publicId()) _ "\"";
+			out _= " \"" _ _html_tb_quote_text(node.systemId()) _ "\"";
+		}
+		out _= ">";
+		return out;
+	}
+
 	static method _serialize_node ( node, Number depth, Array lines ) {
 		if ( node.nodeKind() eq "document" ) {
 			for ( let child in node.childNodes() ) {
@@ -3154,18 +3234,21 @@ class HTMLTreeTestSerializer {
 			return self;
 		}
 		if ( node.nodeKind() eq "doctype" ) {
-			lines.push(self._indent(depth) _ "<!DOCTYPE " _ node.name() _ ">");
+			lines.push(self._indent(depth) _ self._doctype_label(node));
 			return self;
 		}
 		if ( node.nodeKind() eq "element" ) {
 			lines.push(self._indent(depth) _ "<" _ self._element_label(node) _ ">");
-			for ( let record in node.attributeRecords() ) {
+			for ( let record in self._sorted_attribute_records(node) ) {
 				lines.push(
 					self._indent(depth + 1) _ self._attribute_label(record) _ "=\""
 						_ _html_tb_quote_text(record{value}) _ "\"",
 				);
 			}
-			if ( node.tagName() eq "template" ) {
+			if (
+				node.namespaceURI() eq HTML_NAMESPACE_URI
+				and node.tagName() eq "template"
+			) {
 				lines.push(self._indent(depth + 1) _ "content");
 				for ( let child in node.content().childNodes() ) {
 					self._serialize_node( child, depth + 2, lines );

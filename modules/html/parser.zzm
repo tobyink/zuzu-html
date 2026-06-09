@@ -7,10 +7,10 @@ html/parser - HTML5 parser entry points.
 =head1 SYNOPSIS
 
   from html/parser import HTML, HTMLParser;
-
+  
   let doc := HTML.parse("<!doctype html><title>Example</title>");
   let fragment := HTML.parse_fragment("<tr><td>x", context: "table");
-
+  
   let parser := new HTMLParser();
   parser.parse("<p>Reusable</p>");
   let errors := parser.errors();
@@ -44,6 +44,8 @@ clear unimplemented errors. Use C<HTML.parse> and C<toHTML> with explicit
 C<std/io> file handling in application code.
 
 =head1 EXPORTS
+
+=head2 Parser Facade
 
 =over
 
@@ -82,6 +84,12 @@ implemented yet>.
 
 =back
 
+=back
+
+=head2 Parser Class
+
+=over
+
 =item C<HTMLParser>
 
 Reusable parser object with instance methods C<parse>, C<parse_string>,
@@ -91,16 +99,55 @@ the staging document from the last fragment parse. C<errors()> returns a
 copy of the most recent parse-error list. C<parseErrors()> is an alias
 for C<errors()>.
 
+=back
+
+=head2 Re-exported DOM Classes
+
+=over
+
+=item C<HTMLDocument>, C<HTMLDocumentFragment>, C<HTMLElement>,
+C<HTMLTemplateElement>, C<HTMLNode>, C<HTMLText>, C<HTMLComment>,
+C<HTMLDoctype>
+
+DOM classes from C<html/dom>. They are re-exported so code which imports
+C<html/parser> can inspect or type-check parse results without a second
+import.
+
+=item C<DOMNode>, C<DOMDocument>, C<DOMElement>, C<DOMText>,
+C<DOMComment>
+
+DOM-compatible aliases from C<html/dom>.
+
+=item C<HTML_NAMESPACE_URI>, C<SVG_NAMESPACE_URI>, C<MATHML_NAMESPACE_URI>,
+C<XLINK_NAMESPACE_URI>, C<XML_NAMESPACE_URI>, C<XMLNS_NAMESPACE_URI>
+
+Namespace URI constants from C<html/dom>.
+
+=back
+
+=head2 Re-exported Tokenizer Classes
+
+=over
+
 =item C<HTMLInputStream>, C<HTMLTokenizer>, C<HTMLToken>,
 C<HTMLParseError>, C<HTMLNamedCharacterReferences>
 
 Tokenizer-layer classes re-exported from C<html/tokenizer>. These are
 available for focused tokenizer tests and tree-builder integration.
 
+=back
+
+=head2 Re-exported Tree-Builder Classes
+
+=over
+
 =item C<HTMLTreeBuilder>, C<HTMLTreeConstructionResult>,
 C<HTMLTreeTestSerializer>
 
-Tree-builder classes re-exported from C<html/treebuilder>.
+Tree-builder classes re-exported from C<html/treebuilder>. Most users
+should prefer C<HTML> or C<HTMLParser>; these classes are available for
+diagnostics, tests, and tooling that needs direct access to the
+tree-construction layer.
 
 =back
 

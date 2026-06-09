@@ -7,7 +7,7 @@ html/dom - DOM-like classes for parsed HTML documents.
 =head1 SYNOPSIS
 
   from html/dom import HTMLDocument;
-
+  
   let doc := new HTMLDocument();
   let root := doc.createElement("html");
   doc.appendChild( doc.createDoctype() );
@@ -32,6 +32,8 @@ Documents may be created manually through constructors and
 C<HTMLDocument> factory methods, or by C<html/parser>.
 
 =head1 EXPORTS
+
+=head2 Classes
 
 =over
 
@@ -63,7 +65,8 @@ Factory methods are C<createElement>, C<createElementNS>,
 C<createTextNode>, C<createComment>, C<createDoctype>, and
 C<createCDATASection>. C<createElement("template")> returns an
 C<HTMLTemplateElement>. C<createElementNS> should be used for SVG and
-MathML elements.
+MathML elements. The lookup methods C<getElementsByTagName> and
+C<getElementById> search the document's descendant elements.
 
 =item C<HTMLElement>
 
@@ -74,7 +77,8 @@ attribute methods, C<attributeRecords>, and descendant
 C<getElementsByTagName>. Namespaced attribute methods are
 C<getAttributeNS>, C<setAttributeNS>, C<hasAttributeNS>, and
 C<removeAttributeNS>. C<namespaceURI> and C<localName> are authoritative
-for HTML, SVG, and MathML elements.
+for HTML, SVG, and MathML elements. Attribute values are stored as
+strings; missing attributes return C<null>.
 
 =item C<HTMLTemplateElement>, C<HTMLDocumentFragment>
 
@@ -82,18 +86,27 @@ Template elements and their content fragments. C<HTMLDocument>'s
 C<createElement("template")> returns an C<HTMLTemplateElement>.
 C<HTMLTemplateElement.content()> returns the fragment containing parsed
 or manually inserted template contents. C<HTMLDocumentFragment> supports
-the normal container operations and C<getElementsByTagName>.
+the normal container operations and C<getElementsByTagName>. Direct
+children of parsed templates live in C<content()>, not in the template
+element's own C<childNodes()> array.
 
 =item C<HTMLText>, C<HTMLComment>, C<HTMLDoctype>
 
 Text, comment, and doctype node classes. Text and comments expose
 C<data> and C<setData>. Doctypes expose C<name>, C<publicId>, and
-C<systemId>.
+C<systemId>. C<HTMLDoctype> is normally created with
+C<HTMLDocument.createDoctype>.
 
 =item C<DOMNode>, C<DOMDocument>, C<DOMElement>, C<DOMText>,
 C<DOMComment>, C<DOMDoctype>
 
 DOM-compatible aliases implemented as subclasses of the HTML classes.
+
+=back
+
+=head2 Constants
+
+=over
 
 =item C<HTML_NAMESPACE_URI>, C<SVG_NAMESPACE_URI>, C<MATHML_NAMESPACE_URI>,
 C<XLINK_NAMESPACE_URI>, C<XML_NAMESPACE_URI>, C<XMLNS_NAMESPACE_URI>
@@ -102,13 +115,13 @@ Namespace URI constants used by the parser and DOM namespace APIs.
 
 =back
 
-=head1 CURRENT LIMITS
+=head1 LIMITATIONS
 
 =over
 
 =item * C<findnodes> and C<findvalue> throw clear unsupported errors.
 
-There is no XPath or ZPath strategy in this phase.
+There is no XPath or ZPath strategy in this distribution.
 
 =item * C<querySelector> and C<querySelectorAll> support only simple
 selectors: tag names, C<#id>, C<.class>, and C<*>.
@@ -497,7 +510,7 @@ class HTMLNode {
 		kept.push(node) unless inserted;
 
 		_child_nodes := kept;
-		node._parent_node := self;
+		node{_parent_node} := self;
 		node._set_owner_document_recursive(self._owner_for_insert());
 		return node;
 	}
@@ -532,8 +545,8 @@ class HTMLNode {
 					j++;
 				}
 				_child_nodes := kept;
-				oldNode._parent_node := null;
-				newNode._parent_node := self;
+				oldNode{_parent_node} := null;
+				newNode{_parent_node} := self;
 				newNode._set_owner_document_recursive(self._owner_for_insert());
 				return oldNode;
 			}
@@ -548,7 +561,7 @@ class HTMLNode {
 		for ( let child in _child_nodes ) {
 			if ( child ≡ childNode and removed ≡ null ) {
 				removed := child;
-				child._parent_node := null;
+				child{_parent_node} := null;
 			}
 			else {
 				kept.push(child);
@@ -588,7 +601,7 @@ class HTMLNode {
 			_html_dom_die("cannot set non-empty document textContent");
 		}
 		for ( let child in _child_nodes ) {
-			child._parent_node := null;
+			child{_parent_node} := null;
 		}
 		_child_nodes := [];
 		_html_dom_die("setTextContent on detached container needs owner document")
@@ -605,12 +618,12 @@ class HTMLNode {
 			child.normalize();
 			if ( child.nodeKind() eq "text" ) {
 				if ( child.data() eq "" ) {
-					child._parent_node := null;
+					child{_parent_node} := null;
 					next;
 				}
 				if ( previous_text ≢ null ) {
 					previous_text.setData(previous_text.data() _ child.data());
-					child._parent_node := null;
+					child{_parent_node} := null;
 					next;
 				}
 				previous_text := child;

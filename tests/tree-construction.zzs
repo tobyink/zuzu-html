@@ -10,8 +10,9 @@ from test/more import *;
 
 requires_capability("fs");
 
-let FIXTURE_ROOT := "tobyink-dists/html/tests/html5lib/tree-construction/";
-let XFAIL_MANIFEST := "tobyink-dists/html/tests/html/tree-construction-xfails.zzm";
+const DIST_ROOT      := __file__.parent.parent;
+const FIXTURE_ROOT   := DIST_ROOT.child( "tests/html5lib/tree-construction/" );
+const XFAIL_MANIFEST := DIST_ROOT.child( "tests/tree-construction-xfails.zzm" );
 
 function _known_marker ( String line ) {
 	return line eq "#data"
@@ -21,13 +22,6 @@ function _known_marker ( String line ) {
 		or line eq "#script-on"
 		or line eq "#script-off"
 		or line eq "#document";
-}
-
-function _relative_fixture ( path ) {
-	let text := "" _ path;
-	return substr( text, length FIXTURE_ROOT )
-		if starts_with( text, FIXTURE_ROOT );
-	return text;
 }
 
 function _normalise_fixture_text ( String text ) {
@@ -60,9 +54,9 @@ function _finish_case ( Array cases, current ) {
 	return true;
 }
 
-function _new_case ( String relative, Number case_number ) {
+function _new_case ( Path p, Number case_number ) {
 	return {
-		file: relative,
+		file: p.to_String,
 		case_number: case_number,
 		data_lines: [],
 		document_lines: [],
@@ -94,7 +88,6 @@ function _append_to_section ( current, String section, String line ) {
 }
 
 function _parse_fixture ( path ) {
-	let relative := _relative_fixture(path);
 	let text := _normalise_fixture_text(path.slurp_utf8());
 	let lines := split( text, "\n" );
 	let cases := [];
@@ -107,7 +100,7 @@ function _parse_fixture ( path ) {
 			if ( line eq "#data" ) {
 				_finish_case( cases, current );
 				case_number++;
-				current := _new_case( relative, case_number );
+				current := _new_case( path, case_number );
 				section := "data";
 			}
 			else if ( line eq "#errors" ) {
@@ -141,10 +134,10 @@ function _parse_fixture ( path ) {
 
 function _fixture_paths () {
 	let paths := [];
-	for ( let path in Path.glob(FIXTURE_ROOT _ "*.dat") ) {
+	for ( let path in Path.glob(FIXTURE_ROOT _ "/*.dat") ) {
 		paths.push(path);
 	}
-	for ( let path in Path.glob(FIXTURE_ROOT _ "scripted/*.dat") ) {
+	for ( let path in Path.glob(FIXTURE_ROOT _ "/scripted/*.dat") ) {
 		paths.push(path);
 	}
 	return paths.sort( fn ( a, b ) -> ( "" _ a ) cmp ( "" _ b ) );

@@ -7,32 +7,38 @@ The `html` distribution provides:
 - `html/parser`, a document and fragment parser for HTML input.
 - `html/dom`, a DOM-like tree API modelled on the practical surface of
   `std/data/xml`.
+- `html/tags`, shortcut functions for HTML generation.
 - Focused parser and DOM tests plus a committed html5lib tree-construction
   harness.
 
 The parser follows the WHATWG HTML parsing algorithm where currently
 implemented, with remaining conformance gaps tracked in
-`tests/html/tree-construction-xfails.zzm`.
+`tests/tree-construction-xfails.zzm`.
 
 ## Installation
 
-Install from a ZDF archive with `zuzuzoo`, or use the source checkout by
-putting this distribution's `modules` directory on `ZUZULIB`:
+Install from a ZDF archive with `zuzuzoo`:
 
 ```sh
-ZUZULIB=tobyink-dists/html/modules:stdlib/modules zuzu-perl/bin/zuzu script.zzs
+zuzuzoo install html
 ```
 
 Import the parser facade for most use:
 
-```zuzu
+```zzs
 from html/parser import HTML, HTMLParser;
 ```
 
 Import DOM classes directly when constructing trees by hand:
 
-```zuzu
+```zzs
 from html/dom import HTMLDocument, SVG_NAMESPACE_URI, MATHML_NAMESPACE_URI;
+```
+
+Or use `html/tags` for simpler tree construction:
+
+```zzs
+from html/tags import *;
 ```
 
 ## Full Document Parsing
@@ -40,7 +46,7 @@ from html/dom import HTMLDocument, SVG_NAMESPACE_URI, MATHML_NAMESPACE_URI;
 Use `HTML.parse` or its alias `HTML.parse_string` for full documents.
 Both return an `HTMLDocument`.
 
-```zuzu
+```zzs
 from html/parser import HTML;
 
 let doc := HTML.parse("<!doctype html><title>Example</title><p>Hello</p>");
@@ -52,7 +58,7 @@ The parser inserts omitted `html`, `head`, and `body` elements according
 to the tree-builder rules it implements. The returned document can be
 traversed and serialized through the DOM API:
 
-```zuzu
+```zzs
 let root := doc.documentElement();
 let html := doc.toHTML();
 ```
@@ -63,7 +69,7 @@ let html := doc.toHTML();
 last returned staging document, and records the parse errors for that
 operation.
 
-```zuzu
+```zzs
 from html/parser import HTMLParser;
 
 let parser := new HTMLParser();
@@ -89,7 +95,7 @@ construction recovers from many malformed inputs.
 Pass `strict: true` to throw after parsing if any parse errors were
 recorded:
 
-```zuzu
+```zzs
 let parser := new HTMLParser();
 parser.parse( "<!doctype html><p>ok</p>", strict: true );
 ```
@@ -108,7 +114,7 @@ Use `HTML.parse_fragment` or `HTMLParser.parse_fragment` to parse an HTML
 fragment. The return value is an `HTMLDocumentFragment`, not a full
 document.
 
-```zuzu
+```zzs
 from html/parser import HTML;
 
 let fragment := HTML.parse_fragment("<tr><td>x", context: "table");
@@ -134,7 +140,7 @@ template content, SVG, and MathML.
 The `scripting` option defaults to false. It affects the parsing of
 `noscript` content and the html5lib scripting-mode variants:
 
-```zuzu
+```zzs
 let parsed := HTML.parse_fragment(
 	"<b>x</b>",
 	context: "noscript",
@@ -158,7 +164,7 @@ implemented.
 `HTMLComment`, `HTMLDoctype`, `HTMLTemplateElement`, and
 `HTMLDocumentFragment`.
 
-```zuzu
+```zzs
 from html/dom import HTMLDocument;
 
 let doc := new HTMLDocument();
@@ -192,11 +198,30 @@ Attributes are available through `id`, `setId`, `getAttribute`,
 `toHTML`, `toXML`, and `to_String` serialize compact HTML. The `pretty`
 argument is accepted but currently does not enable pretty printing.
 
+### Using `html/tags`
+
+The `html/tags` module provides shortcuts for constructing a DOM.
+
+```zzs
+from html/dom import HTMLDocument;
+from html/tags import *;
+
+let doc := new HTMLDocument();
+doc.appendChild( doc.createDoctype() );
+doc.appendChild(
+	HTML(
+		BODY(
+			P("Hello")
+		)
+	)
+);
+```
+
 ## SVG And MathML Namespaces
 
 Use `createElementNS` for namespace-aware DOM creation:
 
-```zuzu
+```zzs
 from html/dom import HTMLDocument, SVG_NAMESPACE_URI, MATHML_NAMESPACE_URI;
 
 let doc := new HTMLDocument();
@@ -218,7 +243,7 @@ namespaces needed by the html5lib tree-construction fixtures.
 `HTMLTemplateElement`. Template children are stored in
 `template.content()`, an `HTMLDocumentFragment`.
 
-```zuzu
+```zzs
 let doc := HTML.parse("<body><template><p>x</p></template></body>");
 let template := doc.getElementsByTagName("template")[0];
 let content := template.content();
@@ -257,7 +282,7 @@ stable conformance claim.
 Known gaps:
 
 - The full html5lib tree-construction suite still has expected failures
-  listed in `tests/html/tree-construction-xfails.zzm`.
+  listed in `tests/ree-construction-xfails.zzm`.
 - Parse-error count and parse-error code parity are diagnostic only.
 - Script execution during parsing is not implemented.
 - `HTML.load` and `HTML.dump` are not implemented.
@@ -267,7 +292,7 @@ Known gaps:
 
 ## html5lib Coverage
 
-The committed harness is `tests/html/tree-construction.zzs`. It reads the
+The committed harness is `tests/tree-construction.zzs`. It reads the
 vendored html5lib tree-construction fixtures and runs both scripting
 modes when a fixture does not specify one.
 
@@ -280,6 +305,42 @@ Current claimed support level:
 - TODO passes: 0.
 - Unexpected failures: 0.
 - Parse-error-count mismatches: diagnostic only.
+
+### Largest Unintentional Gaps Behind Expected Failures
+
+The current xfail manifest still uses broad reasons for many cases, but
+the largest failure clusters point to these implementation issues. Counts
+below are approximate variant counts from the current manifest, grouped
+by the dominant fixture files that expose each behaviour.
+
+1. Script-data tokenization edge cases, about 164 variants. The tokenizer
+   does not yet fully match the HTML script data, escaped script data,
+   incomplete end-tag, and EOF states. This shows up heavily in
+   `tests16.dat`, `scriptdata01.dat`, and `domjs-unsafe.dat`; examples
+   include preserving `</SCRIPT` as text at EOF and not prematurely
+   ending `<script>` when script text contains nested-looking tags.
+2. Root, head, body, and post-body insertion modes, about 148 variants.
+   Several edge cases around comments, stray end tags, misplaced
+   `title`, and content after `html`/`body` still use the wrong insertion
+   mode or reopen the wrong element. The biggest clusters are
+   `tests19.dat`, `tests1.dat`, `comments01.dat`, and `doctype01.dat`.
+3. Low-level character and token edge cases, about 140 variants. NULL
+   replacement/removal, carriage-return normalization, entity edge cases,
+   and unquoted attributes followed by a self-closing slash are not fully
+   spec-compatible. These failures are concentrated in
+   `plain-text-unsafe.dat`, `webkit02.dat`, `entities01.dat`, and
+   `entities02.dat`.
+4. Template interactions with special insertion modes, about 80 variants.
+   Template content works for the focused tests, but the full algorithm
+   for `template` inside `select`, table, head, and related insertion
+   modes is incomplete. The failures are concentrated in `template.dat`;
+   for example `<select><template></template></select>` currently drops
+   the expected template node.
+5. Ruby element autoclosing and scope rules, about 32 variants. The tree
+   builder does not yet implement the ruby-specific rules which close
+   `rb`, `rt`, `rtc`, and related elements at the right points. These are
+   tracked by `ruby.dat`; the current tree often nests the next ruby child
+   where html5lib expects a sibling.
 
 Expected failures are not skipped. They are run, compared, and reported
 as TODO failures by the TAP harness. If an expected failure starts

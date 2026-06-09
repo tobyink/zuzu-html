@@ -7,9 +7,13 @@ html/tokenizer - HTML input stream and tokenizer.
 =head1 SYNOPSIS
 
   from html/tokenizer import HTMLTokenizer;
-
+  
   let tokenizer := new HTMLTokenizer( _input: "<p title='x'>&amp;</p>" );
   let tokens := tokenizer.tokenize();
+
+=head1 NOTE
+
+This module is not normally useful to end users. Instead use C<html/parser>.
 
 =head1 DESCRIPTION
 
@@ -24,6 +28,56 @@ tokenizer exposes C<setAllowCDATA> and C<allowCDATA> so the tree builder
 can recognise CDATA sections only while processing SVG or MathML foreign
 content.
 
+=head1 EXPORTS
+
+=head2 Classes
+
+=over
+
+=item C<HTMLTokenizer>
+
+Tokenizer for HTML strings. Construct it with C<_input> or call
+C<reset(String input, String state?)> to reuse it. C<tokenize()> returns
+all tokens. C<nextToken()> returns one token at a time and eventually an
+EOF token.
+
+Public state methods are C<state>, C<setState>,
+C<setLastStartTagName>, C<lastStartTagName>, C<setAllowCDATA>,
+C<allowCDATA>, and C<errors>. C<setState> accepts tokenizer state names
+such as C<data>, C<rcdata>, C<rawtext>, C<script_data>, and
+C<plaintext>. C<errors()> returns a copy of the parse errors emitted
+during the last tokenization run.
+
+=item C<HTMLInputStream>
+
+Input stream used by C<HTMLTokenizer>. It normalizes CRLF and CR line
+endings to LF, tracks source position, and exposes C<source>, C<offset>,
+C<line>, C<column>, C<lastOffset>, C<lastLine>, C<lastColumn>, C<eof>,
+C<consume>, C<reconsume>, C<peek>, and C<match>. Most users should use
+C<HTMLTokenizer> instead of consuming the stream directly.
+
+=item C<HTMLToken>
+
+Token object emitted by the tokenizer. C<type()> returns values such as
+C<start_tag>, C<end_tag>, C<characters>, C<comment>, C<doctype>, and
+C<eof>. Other accessors are C<data>, C<tagName>, C<attributes>,
+C<getAttribute>, C<hasAttribute>, C<selfClosing>, C<publicId>,
+C<systemId>, C<forceQuirks>, and C<toDebugString>.
+
+=item C<HTMLParseError>
+
+Non-fatal tokenizer or tree-construction error. Accessors are C<code>,
+C<message>, C<line>, C<column>, C<offset>, C<state>, and C<to_String>.
+
+=item C<HTMLNamedCharacterReferences>
+
+Small named-reference table wrapper. C<table()> returns the current
+mapping, C<get(String name)> returns a named reference or C<null>,
+C<isComplete()> returns false, and C<coverage()> describes the partial
+coverage.
+
+=back
+
 =head1 CHARACTER REFERENCES
 
 Numeric decimal and hexadecimal references are implemented, including
@@ -34,7 +88,7 @@ C<amp>, C<lt>, C<gt>, C<quot>, C<apos>, C<nbsp>, C<copy>, C<reg>, and
 C<not>, with their semicolon forms and the legacy no-semicolon forms
 used by HTML tokenization.
 
-=head1 NON-GOALS
+=head1 LIMITATIONS
 
 There is no DOM tree construction inside this module, no html5lib
 C<.dat> harness, full CSS selector support, or full WHATWG

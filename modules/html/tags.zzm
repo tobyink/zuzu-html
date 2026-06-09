@@ -1,0 +1,1653 @@
+=encoding utf8
+
+=head1 NAME
+
+html/tags - shortcut functions for HTML generation.
+
+=head1 SYNOPSIS
+
+  from html/tags import *;
+  from std/colour import parse_colour;
+  
+  let classes := [ "big", "bold" ];
+  
+  let doc := HTML(
+    lang: "en",
+    HEAD(
+      META( charset: "utf8" ),
+      TITLE( "Hello World" ),
+      STYLE( ```
+        .big   { font-size: 1.5rem; }
+        .small { font-size: 0.75rem; }
+        .bold  { font-weight: bold; }
+        #intro { color: ${ parse_colour("blue") }; }
+      ``` ),
+    ),
+    BODY(
+      H1( "Hello World" ),
+      P( class: classes, id: "intro", "This is an example." ),
+      P( class: "small bold", "And now we're done." ),
+    ),
+  );
+  
+  say doc;
+
+=head1 DESCRIPTION
+
+This module provides shortcut functions for quickly constructing a DOM
+in ZuzuScript.
+
+=head1 EXPORTS
+
+=head2 Functions
+
+=head3 General Functions
+
+=over
+
+=item C<< html_tag( String tagname, ... PairList attrs, Array children ) → HTMLElement >>
+
+Generic HTML tag; can be used to insert any element which this module
+otherwise doesn't provide.
+
+  let annoyance := html_tag( "blink", "This text flashes." );
+
+Attributes are passed as named parameters:
+
+  let link := html_tag( "a", href: "https://example.net/", "Link text" );
+
+All other parameters (including plain strings) are treated as child nodes.
+
+=cut
+
+from html/dom import HTMLElement, HTMLText, HTMLNode, HTMLComment;
+
+function html_tag ( String tagname, ... PairList attrs, Array children ) → HTMLElement {
+	from std/internals import to_String;
+
+	/*
+	from std/dump import Dumper;
+	warn Dumper.dump( [ tagname, attrs, children ] );
+	*/
+
+	// Create element
+	let tag := new HTMLElement( _tag_name: lc tagname );
+
+	// Add attributes
+	function attr_to_str ( name, val ) {
+		if ( name eq "class" and val instanceof Array ) {
+			from std/string import join;
+			return join(" ", val);
+		}
+		return to_String(val);
+	}
+	tag.setAttribute( ^^.key, ( ^^.value instanceof String ) ? ^^.value : attr_to_str( ^^.key, ^^.value ) ) for attrs.enumerate;
+
+	// Add child nodes
+	for ( const child in children ) {
+		if ( child instanceof HTMLNode ) {
+			tag.appendChild( child );
+			next;
+		}
+		else {
+			let childnode := new HTMLText( _node_value: to_String(child) );
+			tag.appendChild( childnode );
+		}
+	}
+
+	return tag;
+}
+
+=item C<< html_comment( String comment ) → HTMLComment >>
+
+Used to insert an HTML comment.
+
+=cut
+
+function html_comment ( String comment ) → HTMLComment {
+	return new HTMLComment( _node_value: comment );
+}
+
+=item C<< html_literal( String literal_html ) → HTMLNode >>
+
+Used to insert literal HTML which will not be escaped during output.
+Internally this is represented as a special HTMLComment node.
+
+  let div := DIV(
+    id: "example",
+    P("This div contains two paragraphs, but one is commented out."),
+    html_literal("<!-- "),
+    P("This one should be commented out."),
+    html_literal(" -->"),
+  );
+
+=cut
+
+class _HTMLLiteral extends HTMLComment {
+
+	method __build__ () {
+		self._use_data_alias( self{_data} );
+		self._configure_node( "comment", "#comment" );
+		self._init_node;
+	}
+
+	method toHTML ( pretty := false ) {
+		return self.data;
+	}
+
+	method cloneNode ( deep := false ) {
+		return new _HTMLLiteral(
+			_node_value:     self.data,
+			_owner_document: self.ownerDocument,
+		);
+	}
+}
+
+function html_literal( String literal_html ) → HTMLNode {
+	return new _HTMLLiteral( _node_value: literal_html );
+}
+
+=back
+
+=head3 Main root
+
+=over
+
+=item C<< HTML(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the top-level root element of an HTML document; every other element in the document is a descendant of it.
+
+=cut
+
+function HTML(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "html", ...attrs, ...children );
+}
+
+=back
+
+=head3 Document metadata
+
+=over
+
+=item C<< BASE(... PairList attrs, Array children ) → HTMLElement >>
+
+Sets the base URL used to resolve relative URLs in the document; only one base element is allowed.
+
+=cut
+
+function BASE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "base", ...attrs, ...children );
+}
+
+=item C<< HEAD(... PairList attrs, Array children ) → HTMLElement >>
+
+Contains document metadata such as the title, scripts, style sheets, links, and other machine-readable information.
+
+=cut
+
+function HEAD(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "head", ...attrs, ...children );
+}
+
+=item C<< LINK(... PairList attrs, Array children ) → HTMLElement >>
+
+Declares a relationship between the current document and an external resource, commonly a style sheet or site icon.
+
+=cut
+
+function LINK(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "link", ...attrs, ...children );
+}
+
+=item C<< META(... PairList attrs, Array children ) → HTMLElement >>
+
+Provides metadata that cannot be expressed by other metadata elements such as base, link, script, style, or title.
+
+=cut
+
+function META(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "meta", ...attrs, ...children );
+}
+
+=item C<< STYLE(... PairList attrs, Array children ) → HTMLElement >>
+
+Contains CSS rules for the document or for a part of the document.
+
+=cut
+
+function STYLE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "style", ...attrs, ...children );
+}
+
+=item C<< TITLE(... PairList attrs, Array children ) → HTMLElement >>
+
+Defines the document title shown by browsers in the window title or tab label; markup inside it is treated as text.
+
+=cut
+
+function TITLE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "title", ...attrs, ...children );
+}
+
+=back
+
+=head3 Sectioning root
+
+=over
+
+=item C<< BODY(... PairList attrs, Array children ) → HTMLElement >>
+
+Contains the visible and interactive content of an HTML document; a document has at most one body element.
+
+=cut
+
+function BODY(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "body", ...attrs, ...children );
+}
+
+=back
+
+=head3 Content sectioning
+
+=over
+
+=item C<< ADDRESS(... PairList attrs, Array children ) → HTMLElement >>
+
+Provides contact information for a person, people, or organisation related to the surrounding content.
+
+=cut
+
+function ADDRESS(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "address", ...attrs, ...children );
+}
+
+=item C<< ARTICLE(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a self-contained piece of content that can stand on its own or be reused independently.
+
+=cut
+
+function ARTICLE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "article", ...attrs, ...children );
+}
+
+=item C<< ASIDE(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents content that is tangentially related to the main surrounding content, such as a sidebar or callout.
+
+=cut
+
+function ASIDE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "aside", ...attrs, ...children );
+}
+
+=item C<< FOOTER(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents footer content for the nearest section or sectioning root, such as authorship, copyright, or related links.
+
+=cut
+
+function FOOTER(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "footer", ...attrs, ...children );
+}
+
+=item C<< HEADER(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents introductory content or navigational aids for the surrounding section or page.
+
+=cut
+
+function HEADER(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "header", ...attrs, ...children );
+}
+
+=item C<< H1(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the highest-level section heading.
+
+=cut
+
+function H1(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "h1", ...attrs, ...children );
+}
+
+=item C<< H2(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a second-level section heading.
+
+=cut
+
+function H2(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "h2", ...attrs, ...children );
+}
+
+=item C<< H3(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a third-level section heading.
+
+=cut
+
+function H3(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "h3", ...attrs, ...children );
+}
+
+=item C<< H4(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a fourth-level section heading.
+
+=cut
+
+function H4(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "h4", ...attrs, ...children );
+}
+
+=item C<< H5(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a fifth-level section heading.
+
+=cut
+
+function H5(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "h5", ...attrs, ...children );
+}
+
+=item C<< H6(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the lowest-level section heading.
+
+=cut
+
+function H6(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "h6", ...attrs, ...children );
+}
+
+=item C<< HGROUP(... PairList attrs, Array children ) → HTMLElement >>
+
+Groups a heading with related secondary content such as a subtitle, alternative title, or tagline.
+
+=cut
+
+function HGROUP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "hgroup", ...attrs, ...children );
+}
+
+=item C<< MAIN(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the dominant content of the document body.
+
+=cut
+
+function MAIN(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "main", ...attrs, ...children );
+}
+
+=item C<< NAV(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a section whose purpose is navigation within the current document or to other documents.
+
+=cut
+
+function NAV(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "nav", ...attrs, ...children );
+}
+
+=item C<< SECTION(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a generic standalone section when no more specific semantic element applies.
+
+=cut
+
+function SECTION(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "section", ...attrs, ...children );
+}
+
+=item C<< SEARCH(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a region containing controls or content for search or filtering.
+
+=cut
+
+function SEARCH(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "search", ...attrs, ...children );
+}
+
+=back
+
+=head3 Text content
+
+=over
+
+=item C<< BLOCKQUOTE(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an extended quotation, optionally with a source URL in the cite attribute.
+
+=cut
+
+function BLOCKQUOTE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "blockquote", ...attrs, ...children );
+}
+
+=item C<< DD(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the description, definition, or value for the preceding term in a description list.
+
+=cut
+
+function DD(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "dd", ...attrs, ...children );
+}
+
+=item C<< DIV(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a generic flow-content container with no inherent semantic meaning.
+
+=cut
+
+function DIV(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "div", ...attrs, ...children );
+}
+
+=item C<< DL(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a description list made of term and description groups.
+
+=cut
+
+function DL(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "dl", ...attrs, ...children );
+}
+
+=item C<< DT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a term in a description or definition list.
+
+=cut
+
+function DT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "dt", ...attrs, ...children );
+}
+
+=item C<< FIGCAPTION(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a caption or legend for the rest of the parent figure element.
+
+=cut
+
+function FIGCAPTION(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "figcaption", ...attrs, ...children );
+}
+
+=item C<< FIGURE(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents self-contained content, optionally with a figcaption, referenced as a single unit.
+
+=cut
+
+function FIGURE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "figure", ...attrs, ...children );
+}
+
+=item C<< HR(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a thematic break between paragraph-level sections of content.
+
+=cut
+
+function HR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "hr", ...attrs, ...children );
+}
+
+=item C<< LI(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an item in a list or menu.
+
+=cut
+
+function LI(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "li", ...attrs, ...children );
+}
+
+=item C<< MENU(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an unordered list of items, treated by browsers like ul.
+
+=cut
+
+function MENU(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "menu", ...attrs, ...children );
+}
+
+=item C<< OL(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an ordered list of items.
+
+=cut
+
+function OL(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "ol", ...attrs, ...children );
+}
+
+=item C<< P(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a paragraph or paragraph-like grouping of related content.
+
+=cut
+
+function P(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "p", ...attrs, ...children );
+}
+
+=item C<< PRE(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents preformatted text where whitespace is presented as written.
+
+=cut
+
+function PRE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "pre", ...attrs, ...children );
+}
+
+=item C<< UL(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an unordered list of items.
+
+=cut
+
+function UL(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "ul", ...attrs, ...children );
+}
+
+=back
+
+=head3 Inline text semantics
+
+=over
+
+=item C<< A(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a hyperlink when used with href, linking to a URL, file, email address, or location.
+
+=cut
+
+function A(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "a", ...attrs, ...children );
+}
+
+=item C<< ABBR(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an abbreviation or acronym.
+
+=cut
+
+function ABBR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "abbr", ...attrs, ...children );
+}
+
+=item C<< B(... PairList attrs, Array children ) → HTMLElement >>
+
+Draws attention to text without implying additional importance.
+
+=cut
+
+function B(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "b", ...attrs, ...children );
+}
+
+=item C<< BDI(... PairList attrs, Array children ) → HTMLElement >>
+
+Isolates its text from surrounding bidirectional text handling.
+
+=cut
+
+function BDI(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "bdi", ...attrs, ...children );
+}
+
+=item C<< BDO(... PairList attrs, Array children ) → HTMLElement >>
+
+Overrides the current text direction for its contents.
+
+=cut
+
+function BDO(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "bdo", ...attrs, ...children );
+}
+
+=item C<< BR(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a line break within text.
+
+=cut
+
+function BR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "br", ...attrs, ...children );
+}
+
+=item C<< CITE(... PairList attrs, Array children ) → HTMLElement >>
+
+Marks the title of a cited creative work.
+
+=cut
+
+function CITE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "cite", ...attrs, ...children );
+}
+
+=item C<< CODE(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a short fragment of computer code.
+
+=cut
+
+function CODE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "code", ...attrs, ...children );
+}
+
+=item C<< DATA(... PairList attrs, Array children ) → HTMLElement >>
+
+Associates content with a machine-readable value.
+
+=cut
+
+function DATA(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "data", ...attrs, ...children );
+}
+
+=item C<< DFN(... PairList attrs, Array children ) → HTMLElement >>
+
+Marks the term being defined by the surrounding context.
+
+=cut
+
+function DFN(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "dfn", ...attrs, ...children );
+}
+
+=item C<< EM(... PairList attrs, Array children ) → HTMLElement >>
+
+Marks text with stress emphasis.
+
+=cut
+
+function EM(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "em", ...attrs, ...children );
+}
+
+=item C<< I(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents text set off from normal prose, such as a term, idiom, or technical phrase.
+
+=cut
+
+function I(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "i", ...attrs, ...children );
+}
+
+=item C<< KBD(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents user input from a keyboard, voice input, or another input device.
+
+=cut
+
+function KBD(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "kbd", ...attrs, ...children );
+}
+
+=item C<< MARK(... PairList attrs, Array children ) → HTMLElement >>
+
+Marks text highlighted for reference or relevance.
+
+=cut
+
+function MARK(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "mark", ...attrs, ...children );
+}
+
+=item C<< Q(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a short inline quotation.
+
+=cut
+
+function Q(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "q", ...attrs, ...children );
+}
+
+=item C<< RP(... PairList attrs, Array children ) → HTMLElement >>
+
+Provides fallback parentheses for ruby annotations in browsers without ruby support.
+
+=cut
+
+function RP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "rp", ...attrs, ...children );
+}
+
+=item C<< RT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents ruby annotation text, such as pronunciation or translation.
+
+=cut
+
+function RT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "rt", ...attrs, ...children );
+}
+
+=item C<< RUBY(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents ruby annotations, commonly used for East Asian typography.
+
+=cut
+
+function RUBY(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "ruby", ...attrs, ...children );
+}
+
+=item C<< S(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents content that is no longer relevant or accurate, usually rendered with a strikethrough.
+
+=cut
+
+function S(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "s", ...attrs, ...children );
+}
+
+=item C<< SAMP(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents sample or quoted output from a program.
+
+=cut
+
+function SAMP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "samp", ...attrs, ...children );
+}
+
+=item C<< SMALL(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents side comments or small print.
+
+=cut
+
+function SMALL(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "small", ...attrs, ...children );
+}
+
+=item C<< SPAN(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a generic inline container with no inherent semantic meaning.
+
+=cut
+
+function SPAN(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "span", ...attrs, ...children );
+}
+
+=item C<< STRONG(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents text with strong importance, seriousness, or urgency.
+
+=cut
+
+function STRONG(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "strong", ...attrs, ...children );
+}
+
+=item C<< SUB(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents inline text that should be displayed as subscript for typographic reasons.
+
+=cut
+
+function SUB(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "sub", ...attrs, ...children );
+}
+
+=item C<< SUP(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents inline text that should be displayed as superscript for typographic reasons.
+
+=cut
+
+function SUP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "sup", ...attrs, ...children );
+}
+
+=item C<< TIME(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a time, date, duration, or other specific period in time.
+
+=cut
+
+function TIME(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "time", ...attrs, ...children );
+}
+
+=item C<< U(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents text with a non-textual annotation, commonly rendered with an underline.
+
+=cut
+
+function U(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "u", ...attrs, ...children );
+}
+
+=item C<< VAR(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a variable name in mathematics, programming, or similar contexts.
+
+=cut
+
+function VAR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "var", ...attrs, ...children );
+}
+
+=item C<< WBR(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an optional word-break opportunity.
+
+=cut
+
+function WBR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "wbr", ...attrs, ...children );
+}
+
+=back
+
+=head3 Image and multimedia
+
+=over
+
+=item C<< AREA(... PairList attrs, Array children ) → HTMLElement >>
+
+Defines a clickable area within an image map.
+
+=cut
+
+function AREA(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "area", ...attrs, ...children );
+}
+
+=item C<< AUDIO(... PairList attrs, Array children ) → HTMLElement >>
+
+Embeds sound content or streamed audio in a document.
+
+=cut
+
+function AUDIO(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "audio", ...attrs, ...children );
+}
+
+=item C<< IMG(... PairList attrs, Array children ) → HTMLElement >>
+
+Embeds an image into the document.
+
+=cut
+
+function IMG(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "img", ...attrs, ...children );
+}
+
+=item C<< MAP(... PairList attrs, Array children ) → HTMLElement >>
+
+Defines an image map containing clickable areas.
+
+=cut
+
+function MAP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "map", ...attrs, ...children );
+}
+
+=item C<< TRACK(... PairList attrs, Array children ) → HTMLElement >>
+
+Specifies timed text tracks or timed data for audio and video elements.
+
+=cut
+
+function TRACK(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "track", ...attrs, ...children );
+}
+
+=item C<< VIDEO(... PairList attrs, Array children ) → HTMLElement >>
+
+Embeds a video-capable media player in the document.
+
+=cut
+
+function VIDEO(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "video", ...attrs, ...children );
+}
+
+=back
+
+=head3 Embedded content
+
+=over
+
+=item C<< EMBED(... PairList attrs, Array children ) → HTMLElement >>
+
+Embeds external content supplied by another application, plug-in, or content source.
+
+=cut
+
+function EMBED(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "embed", ...attrs, ...children );
+}
+
+=item C<< FENCEDFRAME(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a privacy-focused nested browsing context similar to an iframe.
+
+=cut
+
+function FENCEDFRAME(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "fencedframe", ...attrs, ...children );
+}
+
+=item C<< IFRAME(... PairList attrs, Array children ) → HTMLElement >>
+
+Embeds another HTML page as a nested browsing context.
+
+=cut
+
+function IFRAME(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "iframe", ...attrs, ...children );
+}
+
+=item C<< OBJECT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an external resource handled as an image, browsing context, or plug-in resource.
+
+=cut
+
+function OBJECT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "object", ...attrs, ...children );
+}
+
+=item C<< PICTURE(... PairList attrs, Array children ) → HTMLElement >>
+
+Groups alternative image sources with an img fallback.
+
+=cut
+
+function PICTURE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "picture", ...attrs, ...children );
+}
+
+=item C<< SOURCE(... PairList attrs, Array children ) → HTMLElement >>
+
+Specifies an alternative media resource for picture, audio, or video.
+
+=cut
+
+function SOURCE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "source", ...attrs, ...children );
+}
+
+=back
+
+=head3 SVG and MathML
+
+=over
+
+=item C<< SVG(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an SVG container and coordinate system, including SVG embedded in HTML.
+
+=cut
+
+function SVG(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "svg", ...attrs, ...children );
+}
+
+=item C<< MATH(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the top-level MathML element for mathematical markup.
+
+=cut
+
+function MATH(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "math", ...attrs, ...children );
+}
+
+=back
+
+=head3 Scripting
+
+=over
+
+=item C<< CANVAS(... PairList attrs, Array children ) → HTMLElement >>
+
+Provides a drawable graphics surface for the canvas or WebGL APIs.
+
+=cut
+
+function CANVAS(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "canvas", ...attrs, ...children );
+}
+
+=item C<< NOSCRIPT(... PairList attrs, Array children ) → HTMLElement >>
+
+Provides fallback HTML used when scripting is unsupported or disabled.
+
+=cut
+
+function NOSCRIPT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "noscript", ...attrs, ...children );
+}
+
+=item C<< SCRIPT(... PairList attrs, Array children ) → HTMLElement >>
+
+Embeds executable code or data, most commonly JavaScript.
+
+=cut
+
+function SCRIPT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "script", ...attrs, ...children );
+}
+
+=back
+
+=head3 Demarcating edits
+
+=over
+
+=item C<< DEL(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents content that has been deleted from the document.
+
+=cut
+
+function DEL(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "del", ...attrs, ...children );
+}
+
+=item C<< INS(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents content that has been inserted into the document.
+
+=cut
+
+function INS(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "ins", ...attrs, ...children );
+}
+
+=back
+
+=head3 Table content
+
+=over
+
+=item C<< CAPTION(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the caption or title of a table.
+
+=cut
+
+function CAPTION(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "caption", ...attrs, ...children );
+}
+
+=item C<< COL(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents one or more columns within a colgroup.
+
+=cut
+
+function COL(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "col", ...attrs, ...children );
+}
+
+=item C<< COLGROUP(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a group of columns in a table.
+
+=cut
+
+function COLGROUP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "colgroup", ...attrs, ...children );
+}
+
+=item C<< TABLE(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents tabular data arranged in rows and columns.
+
+=cut
+
+function TABLE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "table", ...attrs, ...children );
+}
+
+=item C<< TBODY(... PairList attrs, Array children ) → HTMLElement >>
+
+Groups table rows that make up the body of table data.
+
+=cut
+
+function TBODY(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "tbody", ...attrs, ...children );
+}
+
+=item C<< TD(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a data cell in a table row.
+
+=cut
+
+function TD(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "td", ...attrs, ...children );
+}
+
+=item C<< TFOOT(... PairList attrs, Array children ) → HTMLElement >>
+
+Groups table rows that make up the footer of a table.
+
+=cut
+
+function TFOOT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "tfoot", ...attrs, ...children );
+}
+
+=item C<< TH(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a header cell in a table row.
+
+=cut
+
+function TH(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "th", ...attrs, ...children );
+}
+
+=item C<< THEAD(... PairList attrs, Array children ) → HTMLElement >>
+
+Groups table rows that make up the header of a table.
+
+=cut
+
+function THEAD(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "thead", ...attrs, ...children );
+}
+
+=item C<< TR(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a row of table cells.
+
+=cut
+
+function TR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "tr", ...attrs, ...children );
+}
+
+=back
+
+=head3 Forms
+
+=over
+
+=item C<< BUTTON(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an interactive button that can perform an action or submit a form.
+
+=cut
+
+function BUTTON(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "button", ...attrs, ...children );
+}
+
+=item C<< DATALIST(... PairList attrs, Array children ) → HTMLElement >>
+
+Contains option elements that provide suggested choices for another control.
+
+=cut
+
+function DATALIST(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "datalist", ...attrs, ...children );
+}
+
+=item C<< FIELDSET(... PairList attrs, Array children ) → HTMLElement >>
+
+Groups related form controls and labels.
+
+=cut
+
+function FIELDSET(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "fieldset", ...attrs, ...children );
+}
+
+=item C<< FORM(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a section containing interactive controls for submitting information.
+
+=cut
+
+function FORM(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "form", ...attrs, ...children );
+}
+
+=item C<< INPUT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an interactive form control for accepting user input.
+
+=cut
+
+function INPUT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "input", ...attrs, ...children );
+}
+
+=item C<< LABEL(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a caption for a form control or other user-interface item.
+
+=cut
+
+function LABEL(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "label", ...attrs, ...children );
+}
+
+=item C<< LEGEND(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a caption for the parent fieldset.
+
+=cut
+
+function LEGEND(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "legend", ...attrs, ...children );
+}
+
+=item C<< METER(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a scalar value within a known range or a fractional value.
+
+=cut
+
+function METER(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "meter", ...attrs, ...children );
+}
+
+=item C<< OPTGROUP(... PairList attrs, Array children ) → HTMLElement >>
+
+Groups related options within a select element.
+
+=cut
+
+function OPTGROUP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "optgroup", ...attrs, ...children );
+}
+
+=item C<< OPTION(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents an item in a select, optgroup, or datalist.
+
+=cut
+
+function OPTION(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "option", ...attrs, ...children );
+}
+
+=item C<< OUTPUT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a container for the result of a calculation or user action.
+
+=cut
+
+function OUTPUT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "output", ...attrs, ...children );
+}
+
+=item C<< PROGRESS(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the completion progress of a task.
+
+=cut
+
+function PROGRESS(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "progress", ...attrs, ...children );
+}
+
+=item C<< SELECT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a control offering a menu of options.
+
+=cut
+
+function SELECT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "select", ...attrs, ...children );
+}
+
+=item C<< SELECTEDCONTENT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the currently selected option content inside a closed select element.
+
+=cut
+
+function SELECTEDCONTENT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "selectedcontent", ...attrs, ...children );
+}
+
+=item C<< TEXTAREA(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a multi-line plain-text editing control.
+
+=cut
+
+function TEXTAREA(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "textarea", ...attrs, ...children );
+}
+
+=back
+
+=head3 Interactive elements
+
+=over
+
+=item C<< DETAILS(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a disclosure widget whose contents can be expanded or collapsed.
+
+=cut
+
+function DETAILS(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "details", ...attrs, ...children );
+}
+
+=item C<< DIALOG(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a dialog box or other interactive component.
+
+=cut
+
+function DIALOG(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "dialog", ...attrs, ...children );
+}
+
+=item C<< GEOLOCATION(... PairList attrs, Array children ) → HTMLElement >>
+
+Creates a control for sharing geolocation data with the page.
+
+=cut
+
+function GEOLOCATION(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "geolocation", ...attrs, ...children );
+}
+
+=item C<< SUMMARY(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents the summary or label for a details disclosure widget.
+
+=cut
+
+function SUMMARY(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "summary", ...attrs, ...children );
+}
+
+=back
+
+=head3 Web Components
+
+=over
+
+=item C<< SLOT(... PairList attrs, Array children ) → HTMLElement >>
+
+Represents a placeholder in a web component where assigned content is rendered.
+
+=cut
+
+function SLOT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "slot", ...attrs, ...children );
+}
+
+=item C<< TEMPLATE(... PairList attrs, Array children ) → HTMLElement >>
+
+Holds inert HTML that can be instantiated later by script.
+
+=cut
+
+function TEMPLATE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "template", ...attrs, ...children );
+}
+
+=back
+
+=head3 Obsolete and deprecated elements
+
+=over
+
+=item C<< ACRONYM(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element for marking an acronym or abbreviation.
+
+=cut
+
+function ACRONYM(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "acronym", ...attrs, ...children );
+}
+
+=item C<< BIG(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element that rendered text one font size larger.
+
+=cut
+
+function BIG(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "big", ...attrs, ...children );
+}
+
+=item C<< CENTER(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element that centred its contents horizontally.
+
+=cut
+
+function CENTER(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "center", ...attrs, ...children );
+}
+
+=item C<< CONTENT(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete Web Components insertion point replaced by slot.
+
+=cut
+
+function CONTENT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "content", ...attrs, ...children );
+}
+
+=item C<< DIR(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete container for a directory-style list; use ul instead.
+
+=cut
+
+function DIR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "dir", ...attrs, ...children );
+}
+
+=item C<< FONT(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element for setting font size, colour, and face.
+
+=cut
+
+function FONT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "font", ...attrs, ...children );
+}
+
+=item C<< FRAME(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element defining a frame within a frameset.
+
+=cut
+
+function FRAME(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "frame", ...attrs, ...children );
+}
+
+=item C<< FRAMESET(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element containing frame elements.
+
+=cut
+
+function FRAMESET(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "frameset", ...attrs, ...children );
+}
+
+=item C<< IMAGE(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete precursor to img.
+
+=cut
+
+function IMAGE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "image", ...attrs, ...children );
+}
+
+=item C<< MARQUEE(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element for scrolling text.
+
+=cut
+
+function MARQUEE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "marquee", ...attrs, ...children );
+}
+
+=item C<< MENUITEM(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element representing a command in a popup or context menu.
+
+=cut
+
+function MENUITEM(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "menuitem", ...attrs, ...children );
+}
+
+=item C<< NOBR(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element preventing automatic line wrapping.
+
+=cut
+
+function NOBR(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "nobr", ...attrs, ...children );
+}
+
+=item C<< NOEMBED(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete fallback content for browsers without embed support.
+
+=cut
+
+function NOEMBED(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "noembed", ...attrs, ...children );
+}
+
+=item C<< NOFRAMES(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete fallback content for browsers without frame support.
+
+=cut
+
+function NOFRAMES(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "noframes", ...attrs, ...children );
+}
+
+=item C<< PARAM(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element defining parameters for an object element.
+
+=cut
+
+function PARAM(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "param", ...attrs, ...children );
+}
+
+=item C<< PLAINTEXT(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element that treats all following content as raw text.
+
+=cut
+
+function PLAINTEXT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "plaintext", ...attrs, ...children );
+}
+
+=item C<< RB(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete ruby base-text delimiter.
+
+=cut
+
+function RB(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "rb", ...attrs, ...children );
+}
+
+=item C<< RTC(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete container for semantic ruby annotations.
+
+=cut
+
+function RTC(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "rtc", ...attrs, ...children );
+}
+
+=item C<< SHADOW(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete Web Components shadow DOM insertion point.
+
+=cut
+
+function SHADOW(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "shadow", ...attrs, ...children );
+}
+
+=item C<< STRIKE(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element for strikethrough text.
+
+=cut
+
+function STRIKE(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "strike", ...attrs, ...children );
+}
+
+=item C<< TT(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element for teletype-style monospace text.
+
+=cut
+
+function TT(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "tt", ...attrs, ...children );
+}
+
+=item C<< XMP(... PairList attrs, Array children ) → HTMLElement >>
+
+Obsolete element for displaying uninterpreted HTML text.
+
+=cut
+
+function XMP(... PairList attrs, Array children ) → HTMLElement {
+	return html_tag( "xmp", ...attrs, ...children );
+}
+
+=back
+
+=head1 SEE ALSO
+
+C<html/dom>.
+
+L<https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements>.
+
+=head1 COPYRIGHT AND LICENCE
+
+B<< html/tags >> is copyright Toby Inkster.
+
+It is free software; you may redistribute it and/or modify it under
+the terms of either the Artistic License 1.0 or the GNU General Public
+License version 2.
+
+=cut
+

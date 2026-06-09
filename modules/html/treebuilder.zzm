@@ -7,10 +7,14 @@ html/treebuilder - HTML tree construction framework.
 =head1 SYNOPSIS
 
   from html/treebuilder import HTMLTreeBuilder;
-
+  
   let result := new HTMLTreeBuilder(
     _input: "<!doctype html><title>Example</title>",
   ).parse();
+
+=head1 NOTE
+
+This module is not normally useful to end users. Instead use C<html/parser>.
 
 =head1 DESCRIPTION
 
@@ -25,6 +29,66 @@ foreign CDATA sections.
 
 It deliberately does not implement script execution, file load/dump
 helpers, or the html5lib C<.dat> harness.
+
+=head1 EXPORTS
+
+=head2 Classes
+
+=over
+
+=item C<HTMLTreeBuilder>
+
+Tree-construction engine. Most applications should use C<HTML.parse> or
+C<HTMLParser>; this class is exported for tests, diagnostics, and tools
+which need direct access to the tree-building layer.
+
+Construct with C<_input> to provide source text. C<parse()> returns an
+C<HTMLTreeConstructionResult> for a full document. C<parseFragment>
+parses a context-sensitive fragment and returns an
+C<HTMLTreeConstructionResult> with both a staging document and a
+fragment.
+
+Useful public accessors are C<tokenizer>, C<document>, C<fragment>,
+C<errors>, C<parseErrors>, C<insertionMode>, and C<currentNode>.
+C<errors()> returns tokenizer and tree-construction parse errors
+collected during the latest parse.
+
+Lower-level stack, scope, insertion, and mode methods are exposed by the
+class because the implementation is Pure ZuzuScript, but they are not
+part of the stable application API. Prefer the parser facade unless a
+test or tool needs exact tree-builder state.
+
+=item C<HTMLTreeConstructionResult>
+
+Result object returned by C<HTMLTreeBuilder.parse> and
+C<HTMLTreeBuilder.parseFragment>. C<document()> returns the parsed or
+staging C<HTMLDocument>. C<fragment()> returns the
+C<HTMLDocumentFragment> for fragment parses and C<null> for full
+documents. C<errors()> returns a copy of parse errors, and
+C<parseErrors()> is an alias for C<errors()>.
+
+=item C<HTMLTreeTestSerializer>
+
+Serializer for html5lib tree-construction tests. The static
+C<serialize(node)> method returns the tree-test representation used by
+C<tests/html/tree-construction.zzs>. It serializes document and fragment
+children, element namespaces, sorted attributes, comments, doctypes,
+text nodes, and template content in the shape expected by the vendored
+fixtures.
+
+=back
+
+=head1 LIMITATIONS
+
+This module implements the tree-construction behaviour claimed by the
+distribution tests, not every edge case in the WHATWG algorithm. Known
+html5lib expected failures are tracked in
+C<tests/html/tree-construction-xfails.zzm> and summarized in the
+distribution README.
+
+Script execution during parsing is not implemented. The C<scripting>
+flag affects C<noscript> parsing decisions but does not run scripts or
+allow parser-time script DOM mutation.
 
 =head1 COPYRIGHT AND LICENCE
 

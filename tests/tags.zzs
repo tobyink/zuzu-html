@@ -1,0 +1,56 @@
+from test/more import *;
+from html/tags import *;
+from std/colour import parse_colour;
+
+let classes := [ "big", "bold" ];
+
+let doc := HTML(
+	lang: "en",
+	HEAD(
+		META( charset: "utf8" ),
+		TITLE( "Hello World" ),
+		STYLE( ```
+			.big   { font-size: 1.5rem; }
+			.small { font-size: 0.75rem; }
+			.bold  { font-weight: bold; }
+			#intro { color: ${ parse_colour("blue") }; }
+		``` ),
+		),
+	BODY(
+		H1( "Hello World" ),
+		P( "class": classes, id: "intro", "This is an example." ),
+		P( "class": "small bold", "And now we're done." ),
+	),
+);
+
+is(
+	doc.toHTML,
+	"<html lang=\"en\"><head><meta charset=\"utf8\"><title>Hello World</title><style>\n"
+		_ "\t\t\t.big   { font-size: 1.5rem; }\n"
+		_ "\t\t\t.small { font-size: 0.75rem; }\n"
+		_ "\t\t\t.bold  { font-weight: bold; }\n"
+		_ "\t\t\t#intro { color: #0000ff; }\n"
+		_ "\t\t</style></head>"
+		_ "<body><h1>Hello World</h1><p class=\"big bold\" id=\"intro\">This is an example.</p><p class=\"small bold\">And now we're done.</p></body></html>",
+	"synopsis example"
+);
+
+
+let div := DIV(
+	id: "example",
+	P("This div contains two paragraphs, but one is commented out."),
+	html_literal("<!-- "),
+	P("This one should be commented out."),
+	html_literal(" -->"),
+);
+
+is(
+	div.toHTML,
+	"<div id=\"example\">"
+		_ "<p>This div contains two paragraphs, but one is commented out.</p>"
+		_ "<!-- <p>This one should be commented out.</p> -->"
+		_ "</div>",
+	"literal example"
+);
+
+done_testing();

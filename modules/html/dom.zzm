@@ -1049,6 +1049,15 @@ class HTMLDocumentFragment extends HTMLNode {
 		self._init_node();
 	}
 
+	method getElementsByTagName ( name ) {
+		let wanted := lc(_html_dom_string(name));
+		let out := [];
+		for ( let node in self._descendant_elements() ) {
+			out.push(node) if wanted eq "*" or lc(node.tagName()) eq wanted;
+		}
+		return out;
+	}
+
 	method cloneNode ( deep := false ) {
 		let clone := new HTMLDocumentFragment(
 			_owner_document: self.ownerDocument(),

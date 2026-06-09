@@ -1,6 +1,7 @@
 from html/parser import
 	HTML,
 	HTMLDocument,
+	HTMLDocumentFragment,
 	HTMLInputStream,
 	HTMLNamedCharacterReferences,
 	HTMLParseError,
@@ -70,13 +71,9 @@ like(
 	/parse errors encountered/,
 	"strict parse throws after parse errors",
 );
-like(
-	exception( function () {
-		HTML.parse_fragment("<p>x</p>");
-	} ),
-	/not implemented yet/,
-	"HTML.parse_fragment remains a clear placeholder",
-);
+let fragment := HTML.parse_fragment("<p>x</p>");
+ok( fragment instanceof HTMLDocumentFragment, "HTML.parse_fragment returns fragment" );
+is( fragment.getElementsByTagName("p")[0].textContent(), "x", "fragment text" );
 like(
 	exception( function () {
 		HTML.load("x.html");

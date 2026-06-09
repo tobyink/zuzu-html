@@ -18,13 +18,13 @@ This module implements the full-document tree-builder layer for
 C<html/parser>. It connects the Phase 2 tokenizer to the Phase 1
 C<html/dom> classes and covers the initial, before html, before head,
 in head, text, after head, in body, table, select, template, frameset,
-after body, and after after body insertion modes. Phase 6 also routes
-SVG and MathML foreign content through namespace-aware insertion,
-adjusted SVG/MathML names, foreign XLink/XML/XMLNS attributes,
-HTML/MathML integration points, and foreign CDATA sections.
+after body, after after body, and fragment insertion-mode setup. Phase
+6 also routes SVG and MathML foreign content through namespace-aware
+insertion, adjusted SVG/MathML names, foreign XLink/XML/XMLNS
+attributes, HTML/MathML integration points, and foreign CDATA sections.
 
-It deliberately does not implement fragment parsing, scripting
-execution, file load/dump helpers, or the html5lib C<.dat> harness.
+It deliberately does not implement script execution, file load/dump
+helpers, or the html5lib C<.dat> harness.
 
 =head1 COPYRIGHT AND LICENCE
 
@@ -38,7 +38,9 @@ License version 2.
 
 from html/dom import
 	HTMLDocument,
+	HTMLDocumentFragment,
 	HTML_NAMESPACE_URI,
+	HTMLElement,
 	MATHML_NAMESPACE_URI,
 	SVG_NAMESPACE_URI,
 	XLINK_NAMESPACE_URI,
@@ -155,7 +157,15 @@ function _html_tb_table_structural_element ( String name ) {
 }
 
 function _html_tb_headish_element ( String name ) {
-	return [ "base", "link", "meta", "style", "title" ].contains(lc(name));
+	return [
+		"base",
+		"link",
+		"meta",
+		"noscript",
+		"script",
+		"style",
+		"title",
+	].contains(lc(name));
 }
 
 function _html_tb_svg_tag_name ( String name ) {
@@ -370,6 +380,7 @@ function _html_tb_quote_text ( String text ) {
 
 class HTMLTreeConstructionResult {
 	let _document := null;
+	let _fragment := null;
 	let Array _errors := [];
 
 	method __build__ () {
@@ -378,6 +389,10 @@ class HTMLTreeConstructionResult {
 
 	method document () {
 		return _document;
+	}
+
+	method fragment () {
+		return _fragment;
 	}
 
 	method errors () {
@@ -412,6 +427,10 @@ class HTMLTreeBuilder {
 	let Boolean _finished := false;
 	let Array _errors := [];
 	let Number _tokenizer_error_index := 0;
+	let Boolean _fragment_parsing := false;
+	let _fragment_context_element := null;
+	let _fragment := null;
+	let _synthetic_html_element := null;
 
 	method __build__ () {
 		self.reset(_input);
@@ -435,6 +454,10 @@ class HTMLTreeBuilder {
 		_finished := false;
 		_errors := [];
 		_tokenizer_error_index := 0;
+		_fragment_parsing := false;
+		_fragment_context_element := null;
+		_fragment := null;
+		_synthetic_html_element := null;
 		return self;
 	}
 
@@ -444,6 +467,10 @@ class HTMLTreeBuilder {
 
 	method document () {
 		return _document;
+	}
+
+	method fragment () {
+		return _fragment;
 	}
 
 	method errors () {
@@ -468,6 +495,13 @@ class HTMLTreeBuilder {
 	}
 
 	method _adjusted_current_node () {
+		if (
+			_fragment_parsing
+			and _open_elements.length() == 1
+			and _fragment_context_element ≢ null
+		) {
+			return _fragment_context_element;
+		}
 		return self.currentNode();
 	}
 
@@ -1019,7 +1053,11 @@ class HTMLTreeBuilder {
 	}
 
 	method _start_headish_in_body ( HTMLToken token ) {
+		return null if token.tagName() eq "noscript" and not _scripting;
 		if ( [ "base", "link", "meta", "style", "title" ].contains(token.tagName()) ) {
+			return self._mode_in_head(token);
+		}
+		if ( token.tagName() eq "script" or token.tagName() eq "noscript" ) {
 			return self._mode_in_head(token);
 		}
 		return null;
@@ -1136,8 +1174,99 @@ class HTMLTreeBuilder {
 		self._copy_tokenizer_errors();
 		return new HTMLTreeConstructionResult(
 			_document: _document,
+			_fragment: _fragment,
 			_errors: self.errors(),
 		);
+	}
+
+	method parseFragment (
+		String input := "",
+		context := "div",
+		Boolean scripting := false,
+	) {
+		self.reset(input);
+		_scripting := scripting ? true : false;
+		_fragment_parsing := true;
+		_fragment := new HTMLDocumentFragment( _owner_document: _document );
+		_fragment_context_element := self._normalise_fragment_context(context);
+		_synthetic_html_element := _document.createElement("html");
+		_document.appendChild(_synthetic_html_element);
+		self.pushElement(_synthetic_html_element);
+		self._setup_fragment_form_pointer(_fragment_context_element);
+		self._set_fragment_tokenizer_state(_fragment_context_element);
+		self._reset_insertion_mode_appropriately();
+		let result := self.parse();
+		self._finish_fragment();
+		return new HTMLTreeConstructionResult(
+			_document: _document,
+			_fragment: _fragment,
+			_errors: result.errors(),
+		);
+	}
+
+	method _normalise_fragment_context ( context ) {
+		if ( context instanceof HTMLElement ) {
+			return context;
+		}
+		let name := lc(_html_tb_string(context));
+		name := "div" if name eq "";
+		if ( name eq "svg" ) {
+			return _document.createElementNS( SVG_NAMESPACE_URI, "svg" );
+		}
+		if ( name eq "math" ) {
+			return _document.createElementNS( MATHML_NAMESPACE_URI, "math" );
+		}
+		return _document.createElement(name);
+	}
+
+	method _setup_fragment_form_pointer ( context ) {
+		let node := context;
+		while ( node ≢ null ) {
+			if (
+				node.nodeKind() eq "element"
+				and node.namespaceURI() eq HTML_NAMESPACE_URI
+				and node.tagName() eq "form"
+			) {
+				_form_element := node;
+				return self;
+			}
+			node := node.parentNode();
+		}
+		return self;
+	}
+
+	method _set_fragment_tokenizer_state ( context ) {
+		return self if context ≡ null or context.nodeKind() ne "element";
+		let name := lc(context.localName());
+		let state := "data";
+		if ( name eq "title" or name eq "textarea" ) {
+			state := "rcdata";
+		}
+		else if (
+			[ "style", "xmp", "iframe", "noembed", "noframes" ].contains(name)
+		) {
+			state := "rawtext";
+		}
+		else if ( name eq "script" ) {
+			state := "script_data";
+		}
+		else if ( name eq "noscript" and _scripting ) {
+			state := "rawtext";
+		}
+		else if ( name eq "plaintext" ) {
+			state := "plaintext";
+		}
+		_tokenizer.setState(state);
+		_tokenizer.setLastStartTagName( state eq "data" ? null : name );
+		return self;
+	}
+
+	method _finish_fragment () {
+		return self if _fragment ≡ null or _synthetic_html_element ≡ null;
+		while ( _synthetic_html_element.childNodes().length() > 0 ) {
+			_fragment.appendChild(_synthetic_html_element.firstChild());
+		}
+		return self;
 	}
 
 	method _copy_tokenizer_errors () {
@@ -1242,7 +1371,7 @@ class HTMLTreeBuilder {
 				self._pop_until_html_or_integration_point();
 				return true;
 			}
-			let ns := self.currentNode().namespaceURI();
+			let ns := self._adjusted_current_node().namespaceURI();
 			ns := SVG_NAMESPACE_URI if token.tagName() eq "svg";
 			ns := MATHML_NAMESPACE_URI if token.tagName() eq "math";
 			self.insertForeignElementForToken( token, ns );
@@ -1370,6 +1499,22 @@ class HTMLTreeBuilder {
 		if ( token.type() eq "StartTag" and token.tagName() eq "style" ) {
 			self.insertElementForToken(token);
 			self._enter_text_mode( "rawtext", token.tagName() );
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "script" ) {
+			self.insertElementForToken(token);
+			self._enter_text_mode( "script_data", token.tagName() );
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "noscript" ) {
+			self.insertElementForToken(token);
+			if ( _scripting ) {
+				self._enter_text_mode( "rawtext", token.tagName() );
+			}
+			return false;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "noscript" ) {
+			self.popElement() if self._current_node_is("noscript");
 			return false;
 		}
 		if ( token.type() eq "StartTag" and token.tagName() eq "noframes" ) {
@@ -1714,6 +1859,18 @@ class HTMLTreeBuilder {
 
 	method _end_tag_in_body ( HTMLToken token ) {
 		let name := token.tagName();
+		if (
+			_fragment_parsing
+			and _fragment_context_element ≢ null
+			and _fragment_context_element.nodeKind() eq "element"
+			and lc(_fragment_context_element.localName()) eq name
+			and _tokenizer.state() ne "data"
+			and _tokenizer.state() ne "plaintext"
+		) {
+			_tokenizer.setState("data");
+			_tokenizer.setLastStartTagName(null);
+			return false;
+		}
 		if ( name eq "body" ) {
 			self._close_body(token);
 			return false;
@@ -2585,6 +2742,10 @@ class HTMLTreeBuilder {
 		let i := _open_elements.length() - 1;
 		while ( i >= 0 ) {
 			let node := _open_elements[i];
+			node := _fragment_context_element
+				if _fragment_parsing
+					and i == 0
+					and _fragment_context_element ≢ null;
 			if ( node.nodeKind() eq "element" ) {
 				let name := node.tagName();
 				if ( name eq "select" ) {
@@ -2981,6 +3142,12 @@ class HTMLTreeTestSerializer {
 
 	static method _serialize_node ( node, Number depth, Array lines ) {
 		if ( node.nodeKind() eq "document" ) {
+			for ( let child in node.childNodes() ) {
+				self._serialize_node( child, depth, lines );
+			}
+			return self;
+		}
+		if ( node.nodeKind() eq "fragment" ) {
 			for ( let child in node.childNodes() ) {
 				self._serialize_node( child, depth, lines );
 			}

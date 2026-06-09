@@ -1,0 +1,145 @@
+from html/parser import
+	HTML,
+	HTMLDocument,
+	HTMLDocumentFragment,
+	HTMLParser,
+	HTMLTreeConstructionResult,
+	HTMLTreeTestSerializer,
+	HTML_NAMESPACE_URI,
+	MATHML_NAMESPACE_URI,
+	SVG_NAMESPACE_URI;
+from test/more import *;
+
+function has_code ( Array errors, String code ) {
+	for ( let error in errors ) {
+		return true if error.code() eq code;
+	}
+	return false;
+}
+
+let basic := HTML.parse_fragment("<p>x</p>tail");
+ok( basic instanceof HTMLDocumentFragment, "parse_fragment returns fragment" );
+is( basic.nodeType(), "11", "fragment node type" );
+is( basic.children().length(), 1, "fragment exposes element children" );
+is( basic.children()[0].tagName(), "p", "default context parses p" );
+is( basic.textContent(), "xtail", "default context keeps tail text" );
+is( basic.getElementsByTagName("html").length(), 0, "no html wrapper returned" );
+is( basic.getElementsByTagName("body").length(), 0, "no body wrapper returned" );
+
+let formatting := HTML.parse_fragment("<p><b>x</p>y");
+is(
+	HTMLTreeTestSerializer.serialize(formatting),
+	"| <p>\n"
+		_ "|   <b>\n"
+		_ "|     \"x\"\n"
+		_ "| <b>\n"
+		_ "|   \"y\"",
+	"fragment preserves formatting reconstruction",
+);
+
+let table := HTML.parse_fragment("<tr><td>x</td></tr>", context: "table");
+is( table.getElementsByTagName("tbody").length(), 1, "table context implies tbody" );
+is( table.getElementsByTagName("td")[0].textContent(), "x", "table cell text" );
+
+let tbody := HTML.parse_fragment("<tr><td>x", context: "tbody");
+is( tbody.getElementsByTagName("tr").length(), 1, "tbody context starts in table body" );
+is( tbody.getElementsByTagName("td")[0].textContent(), "x", "tbody td text" );
+
+let tr := HTML.parse_fragment("<td>x<th>y", context: "tr");
+is( tr.getElementsByTagName("td")[0].textContent(), "x", "tr context td" );
+is( tr.getElementsByTagName("th")[0].textContent(), "y", "tr context th" );
+
+let cell := HTML.parse_fragment("<p>x</p>", context: "td");
+is( cell.getElementsByTagName("p")[0].textContent(), "x", "td context in cell" );
+
+let caption := HTML.parse_fragment("<p>x</p>", context: "caption");
+is( caption.getElementsByTagName("p")[0].textContent(), "x", "caption context" );
+
+let colgroup := HTML.parse_fragment("<col span=2>", context: "colgroup");
+is( colgroup.getElementsByTagName("col")[0].getAttribute("span"), "2", "colgroup context" );
+
+let select := HTML.parse_fragment("<option>a<option>b", context: "select");
+is( select.getElementsByTagName("option").length(), 2, "select context options" );
+is( select.getElementsByTagName("option")[1].textContent(), "b", "second option text" );
+
+let template := HTML.parse_fragment("<table><tr><td>x</td></tr></table>", context: "template");
+is( template.getElementsByTagName("table").length(), 1, "template context table" );
+is( template.getElementsByTagName("td")[0].textContent(), "x", "template context td" );
+
+let title := HTML.parse_fragment("<b>&amp;</b>", context: "title");
+is( title.textContent(), "<b>&</b>", "title context uses RCDATA" );
+
+let textarea := HTML.parse_fragment("<b>&amp;</b>", context: "textarea");
+is( textarea.textContent(), "<b>&</b>", "textarea context uses RCDATA" );
+
+let style := HTML.parse_fragment("<b>&amp;</b>", context: "style");
+is( style.textContent(), "<b>&amp;</b>", "style context uses RAWTEXT" );
+
+let script := HTML.parse_fragment("if (a<!--b) {}</script><p>x", context: "script");
+is( script.firstChild().data(), "if (a<!--b) {}", "script context uses script data" );
+is( script.getElementsByTagName("p")[0].textContent(), "x", "script end returns to data" );
+
+let plaintext := HTML.parse_fragment("<b>x", context: "plaintext");
+is( plaintext.textContent(), "<b>x", "plaintext context consumes markup as text" );
+
+let noscript_off := HTML.parse_fragment(
+	"<b>x</b>",
+	context: "noscript",
+	scripting: false,
+);
+is( noscript_off.getElementsByTagName("b")[0].textContent(), "x", "noscript scripting off parses HTML" );
+
+let noscript_on := HTML.parse_fragment(
+	"<b>x</b>",
+	context: "noscript",
+	scripting: true,
+);
+is( noscript_on.textContent(), "<b>x</b>", "noscript scripting on uses RAWTEXT" );
+is( noscript_on.getElementsByTagName("b").length(), 0, "noscript RAWTEXT has no element" );
+
+let dom_doc := new HTMLDocument();
+let dom_context := dom_doc.createElement("td");
+let dom_fragment := HTML.parse_fragment("<p>dom</p>", context: dom_context);
+is( dom_fragment.getElementsByTagName("p")[0].textContent(), "dom", "DOM context accepted" );
+
+let form_doc := new HTMLDocument();
+let form_context := form_doc.createElement("form");
+let form_fragment := HTML.parse_fragment(
+	"<form id=nested><input name=x>",
+	context: form_context,
+);
+is( form_fragment.getElementsByTagName("form").length(), 0, "form context ignores nested form" );
+is( form_fragment.getElementsByTagName("input")[0].getAttribute("name"), "x", "form context keeps input" );
+
+let svg := HTML.parse_fragment("<circle></circle>", context: "svg");
+is( svg.getElementsByTagName("circle")[0].namespaceURI(), SVG_NAMESPACE_URI, "SVG context namespace" );
+
+let math := HTML.parse_fragment("<mi>x</mi>", context: "math");
+is( math.getElementsByTagName("mi")[0].namespaceURI(), MATHML_NAMESPACE_URI, "MathML context namespace" );
+is( math.getElementsByTagName("mi")[0].textContent(), "x", "MathML context text" );
+
+like(
+	exception( function () {
+		HTML.parse_fragment( "</p>", strict: true );
+	} ),
+	/parse errors encountered/,
+	"strict fragment parse throws on parse errors",
+);
+
+let reusable := new HTMLParser();
+let first := reusable.parse_fragment("<td>x", context: "tr");
+ok( first instanceof HTMLDocumentFragment, "reusable fragment parse returns fragment" );
+let result_doc := reusable.document();
+ok( result_doc instanceof HTMLDocument, "parser stores staging document after fragment parse" );
+let second := reusable.parse("<!doctype html><p>clean</p>");
+is( second.getElementsByTagName("p")[0].textContent(), "clean", "document parse after fragment is clean" );
+is( second.getElementsByTagName("td").length(), 0, "fragment state does not leak into document parse" );
+is( reusable.errors().length(), 0, "document parse clears fragment errors" );
+
+let builder := new HTMLParser();
+builder.parse_fragment("<p>x</p>");
+is( builder.document().documentElement().tagName(), "html", "parser stores fragment staging document" );
+
+is( basic.firstChild().namespaceURI(), HTML_NAMESPACE_URI, "HTML context namespace" );
+
+done_testing();

@@ -27,8 +27,9 @@ reconstruction, adoption-agency recovery, forms, buttons, void
 elements, plaintext, table foster parenting, select recovery,
 template content, framesets, SVG/MathML namespaces, adjusted foreign
 names, foreign attributes, integration points, and foreign CDATA
-sections. Fragment parsing, file loading, scripting behaviour, and
-dumping remain deferred.
+sections. Phase 7 adds C<HTML.parse_fragment> for context-sensitive
+fragments and the parser scripting flag. File loading and dumping
+remain deferred.
 
 =head1 EXPORTS
 
@@ -44,10 +45,12 @@ Static parser facade.
 
 Parse a full HTML document.
 
-=item C<< HTML.parse_fragment(String html, ... options) >>
+=item C<< HTML.parse_fragment(String html, ... options) -> HTMLDocumentFragment >>
 
-Parse an HTML fragment using an optional context element supplied in
-C<options>.
+Parse an HTML fragment. C<context> defaults to C<div> and may be a tag
+name string or an C<HTMLElement>/C<HTMLTemplateElement>. C<scripting>
+defaults to false and controls C<noscript> tokenization. C<strict>, when
+true, throws after parsing if parse errors were recorded.
 
 =item C<< HTML.load(Path path, ... options) -> HTMLDocument >>
 
@@ -150,7 +153,18 @@ class HTMLParser {
 	}
 
 	method parse_fragment ( String html, ... PairList options ) {
-		_html_parser_unimplemented("parse_fragment");
+		_scripting := options.get( "scripting", false ) ? true : false;
+		let strict := options.get( "strict", false ) ? true : false;
+		let context := options.get( "context", "div" );
+		let builder := new HTMLTreeBuilder(
+			_input: html,
+			_scripting: _scripting,
+		);
+		_last_result := builder.parseFragment( html, context, _scripting );
+		_document := _last_result.document();
+		_errors := _last_result.errors();
+		die "html/parser: parse errors encountered" if strict and _errors.length();
+		return _last_result.fragment();
 	}
 
 	method load ( path, ... PairList options ) {

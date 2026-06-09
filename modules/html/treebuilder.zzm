@@ -18,10 +18,13 @@ This module implements the full-document tree-builder layer for
 C<html/parser>. It connects the Phase 2 tokenizer to the Phase 1
 C<html/dom> classes and covers the initial, before html, before head,
 in head, text, after head, in body, table, select, template, frameset,
-after body, and after after body insertion modes.
+after body, and after after body insertion modes. Phase 6 also routes
+SVG and MathML foreign content through namespace-aware insertion,
+adjusted SVG/MathML names, foreign XLink/XML/XMLNS attributes,
+HTML/MathML integration points, and foreign CDATA sections.
 
-It deliberately does not implement foreign content, fragment parsing, or
-the html5lib C<.dat> harness.
+It deliberately does not implement fragment parsing, scripting
+execution, file load/dump helpers, or the html5lib C<.dat> harness.
 
 =head1 COPYRIGHT AND LICENCE
 
@@ -33,9 +36,16 @@ License version 2.
 
 =cut
 
-from html/dom import HTMLDocument;
+from html/dom import
+	HTMLDocument,
+	HTML_NAMESPACE_URI,
+	MATHML_NAMESPACE_URI,
+	SVG_NAMESPACE_URI,
+	XLINK_NAMESPACE_URI,
+	XML_NAMESPACE_URI,
+	XMLNS_NAMESPACE_URI;
 from html/tokenizer import HTMLParseError, HTMLToken, HTMLTokenizer;
-from std/string import join, replace;
+from std/string import join, replace, substr;
 
 function _html_tb_string ( value ) {
 	return value ≡ null ? "" : "" _ value;
@@ -148,6 +158,121 @@ function _html_tb_headish_element ( String name ) {
 	return [ "base", "link", "meta", "style", "title" ].contains(lc(name));
 }
 
+function _html_tb_svg_tag_name ( String name ) {
+	let map := {
+		altglyph: "altGlyph",
+		animatecolor: "animateColor",
+		animatemotion: "animateMotion",
+		animatetransform: "animateTransform",
+		clippath: "clipPath",
+		feblend: "feBlend",
+		fecolormatrix: "feColorMatrix",
+		fecomponenttransfer: "feComponentTransfer",
+		fecomposite: "feComposite",
+		feconvolvematrix: "feConvolveMatrix",
+		fediffuselighting: "feDiffuseLighting",
+		fedisplacementmap: "feDisplacementMap",
+		fedistantlight: "feDistantLight",
+		fedropshadow: "feDropShadow",
+		feflood: "feFlood",
+		fefunca: "feFuncA",
+		fefuncb: "feFuncB",
+		fefuncg: "feFuncG",
+		fefuncr: "feFuncR",
+		fegaussianblur: "feGaussianBlur",
+		feimage: "feImage",
+		femerge: "feMerge",
+		femergenode: "feMergeNode",
+		femorphology: "feMorphology",
+		feoffset: "feOffset",
+		fepointlight: "fePointLight",
+		fespecularlighting: "feSpecularLighting",
+		fespotlight: "feSpotLight",
+		fetile: "feTile",
+		feturbulence: "feTurbulence",
+		foreignobject: "foreignObject",
+		glyphref: "glyphRef",
+		lineargradient: "linearGradient",
+		radialgradient: "radialGradient",
+		textpath: "textPath",
+	};
+	return map.exists(lc(name)) ? map{(lc(name))} : name;
+}
+
+function _html_tb_svg_attr_name ( String name ) {
+	let map := {
+		attributename: "attributeName",
+		basefrequency: "baseFrequency",
+		gradientunits: "gradientUnits",
+		preserveaspectratio: "preserveAspectRatio",
+		viewbox: "viewBox",
+		xchannelselector: "xChannelSelector",
+		ychannelselector: "yChannelSelector",
+	};
+	return map.exists(lc(name)) ? map{(lc(name))} : name;
+}
+
+function _html_tb_mathml_attr_name ( String name ) {
+	return lc(name) eq "definitionurl" ? "definitionURL" : name;
+}
+
+function _html_tb_breakout_start_tag ( HTMLToken token ) {
+	let name := token.tagName();
+	return true if [
+		"b",
+		"big",
+		"blockquote",
+		"body",
+		"br",
+		"center",
+		"code",
+		"dd",
+		"div",
+		"dl",
+		"dt",
+		"em",
+		"embed",
+		"h1",
+		"h2",
+		"h3",
+		"h4",
+		"h5",
+		"h6",
+		"head",
+		"hr",
+		"i",
+		"img",
+		"li",
+		"listing",
+		"menu",
+		"meta",
+		"nobr",
+		"ol",
+		"p",
+		"pre",
+		"ruby",
+		"s",
+		"small",
+		"span",
+		"strong",
+		"strike",
+		"sub",
+		"sup",
+		"table",
+		"tt",
+		"u",
+		"ul",
+		"var",
+	].contains(name);
+	return true if name eq "font"
+		and (
+			token.hasAttribute("color")
+			or token.hasAttribute("face")
+			or token.hasAttribute("size")
+		);
+	return false;
+}
+
 function _html_tb_implied_end_element ( String name ) {
 	return [
 		"dd",
@@ -225,6 +350,7 @@ function _html_tb_special_element ( String name ) {
 function _html_tb_same_element_shape ( a, b ) {
 	return false if a ≡ null or b ≡ null;
 	return false unless a.nodeKind() eq "element" and b.nodeKind() eq "element";
+	return false unless a.namespaceURI() eq b.namespaceURI();
 	return false unless a.tagName() eq b.tagName();
 	let a_attrs := a.attributes();
 	let b_attrs := b.attributes();
@@ -339,6 +465,70 @@ class HTMLTreeBuilder {
 	method currentNode () {
 		return _document if _open_elements.length() == 0;
 		return _open_elements[ _open_elements.length() - 1 ];
+	}
+
+	method _adjusted_current_node () {
+		return self.currentNode();
+	}
+
+	method _is_html_ns ( node ) {
+		return node ≢ null
+			and node.nodeKind() eq "element"
+			and node.namespaceURI() eq HTML_NAMESPACE_URI;
+	}
+
+	method _is_svg_ns ( node ) {
+		return node ≢ null
+			and node.nodeKind() eq "element"
+			and node.namespaceURI() eq SVG_NAMESPACE_URI;
+	}
+
+	method _is_mathml_ns ( node ) {
+		return node ≢ null
+			and node.nodeKind() eq "element"
+			and node.namespaceURI() eq MATHML_NAMESPACE_URI;
+	}
+
+	method _is_foreign_context () {
+		let node := self._adjusted_current_node();
+		return false unless node.nodeKind() eq "element";
+		return node.namespaceURI() ne HTML_NAMESPACE_URI;
+	}
+
+	method _is_mathml_text_integration_point ( node ) {
+		return false unless self._is_mathml_ns(node);
+		return [ "mi", "mo", "mn", "ms", "mtext" ].contains(node.localName());
+	}
+
+	method _is_html_integration_point ( node ) {
+		return false unless node ≢ null and node.nodeKind() eq "element";
+		if ( self._is_svg_ns(node) ) {
+			return [ "foreignObject", "desc", "title" ].contains(node.localName());
+		}
+		if (
+			self._is_mathml_ns(node) and
+			node.localName() eq "annotation-xml"
+		) {
+			let enc := lc(node.getAttribute("encoding") ?: "");
+			return enc eq "text/html" or enc eq "application/xhtml+xml";
+		}
+		return false;
+	}
+
+	method _should_process_using_html_rules ( HTMLToken token ) {
+		return true if token.type() eq "EOF";
+		let node := self._adjusted_current_node();
+		return true if node.nodeKind() ne "element";
+		return true if node.namespaceURI() eq HTML_NAMESPACE_URI;
+		if ( self._is_mathml_text_integration_point(node) ) {
+			return true if token.type() eq "Character";
+			return true if token.type() eq "StartTag"
+				and not [ "mglyph", "malignmark" ].contains(token.tagName());
+		}
+		if ( self._is_html_integration_point(node) ) {
+			return true if token.type() eq "Character" or token.type() eq "StartTag";
+		}
+		return false;
 	}
 
 	method pushElement ( element ) {
@@ -550,9 +740,21 @@ class HTMLTreeBuilder {
 	}
 
 	method _clone_for_insertion ( element ) {
-		let clone := _document.createElement(element.tagName());
-		for ( let name in element.attributeNames() ) {
-			clone.setAttribute( name, element.getAttribute(name) );
+		let clone := _document.createElementNS(
+			element.namespaceURI(),
+			element.tagName(),
+		);
+		for ( let record in element.attributeRecords() ) {
+			if ( record{namespaceURI} ≡ null ) {
+				clone.setAttribute( record{qualifiedName}, record{value} );
+			}
+			else {
+				clone.setAttributeNS(
+					record{namespaceURI},
+					record{qualifiedName},
+					record{value},
+				);
+			}
 		}
 		return clone;
 	}
@@ -915,6 +1117,13 @@ class HTMLTreeBuilder {
 
 	method parse () {
 		while ( not _finished ) {
+			_tokenizer.setAllowCDATA(
+				self._is_foreign_context()
+					and not self._is_html_integration_point(self._adjusted_current_node())
+					and not self._is_mathml_text_integration_point(
+						self._adjusted_current_node(),
+					),
+			);
 			let token := _tokenizer.nextToken();
 			last if token ≡ null;
 			self._copy_tokenizer_errors();
@@ -953,6 +1162,12 @@ class HTMLTreeBuilder {
 	}
 
 	method _process_token ( HTMLToken token ) {
+		if (
+			self._is_foreign_context()
+			and not self._should_process_using_html_rules(token)
+		) {
+			return self._process_foreign_content(token);
+		}
 		switch ( _insertion_mode: eq ) {
 			case "initial": return self._mode_initial(token);
 			case "before html": return self._mode_before_html(token);
@@ -983,6 +1198,91 @@ class HTMLTreeBuilder {
 			token,
 		);
 		_finished := true;
+		return false;
+	}
+
+	method _pop_until_html_or_integration_point () {
+		while (
+			_open_elements.length() > 0 and
+			self.currentNode().nodeKind() eq "element" and
+			self.currentNode().namespaceURI() ne HTML_NAMESPACE_URI and
+			not self._is_html_integration_point(self.currentNode()) and
+			not self._is_mathml_text_integration_point(self.currentNode())
+		) {
+			self.popElement();
+		}
+		return self;
+	}
+
+	method _process_foreign_content ( HTMLToken token ) {
+		if ( token.type() eq "Character" ) {
+			self.insertCharacter(token.data());
+			_frameset_ok := false unless _html_tb_is_ws(token.data());
+			return false;
+		}
+		if ( token.type() eq "Comment" ) {
+			self.insertComment(token);
+			return false;
+		}
+		if ( token.type() eq "DOCTYPE" ) {
+			self.parseError(
+				"unexpected-doctype-in-foreign-content",
+				"Unexpected doctype in foreign content",
+				token,
+			);
+			return false;
+		}
+		if ( token.type() eq "StartTag" ) {
+			if ( _html_tb_breakout_start_tag(token) ) {
+				self.parseError(
+					"html-start-tag-in-foreign-content",
+					"HTML start tag exits foreign content",
+					token,
+				);
+				self._pop_until_html_or_integration_point();
+				return true;
+			}
+			let ns := self.currentNode().namespaceURI();
+			ns := SVG_NAMESPACE_URI if token.tagName() eq "svg";
+			ns := MATHML_NAMESPACE_URI if token.tagName() eq "math";
+			self.insertForeignElementForToken( token, ns );
+			self.popElement() if token.selfClosing();
+			return false;
+		}
+		if ( token.type() eq "EndTag" ) {
+			let name := token.tagName();
+			if ( name eq "br" or name eq "p" ) {
+				self.parseError(
+					"html-end-tag-in-foreign-content",
+					"HTML end tag exits foreign content",
+					token,
+				);
+				self._pop_until_html_or_integration_point();
+				return true;
+			}
+			let i := _open_elements.length() - 1;
+			while ( i >= 0 ) {
+				let node := _open_elements[i];
+				if ( node.nodeKind() eq "element" ) {
+					if ( node.namespaceURI() eq HTML_NAMESPACE_URI ) {
+						last;
+					}
+					if ( lc(node.localName()) eq name ) {
+						while ( _open_elements.length() > i ) {
+							self.popElement();
+						}
+						return false;
+					}
+				}
+				i--;
+			}
+			self.parseError(
+				"unexpected-foreign-end-tag",
+				"Foreign end tag ignored",
+				token,
+			);
+			return false;
+		}
 		return false;
 	}
 
@@ -1253,6 +1553,18 @@ class HTMLTreeBuilder {
 			else {
 				self.switchTo("in select");
 			}
+			return false;
+		}
+		if ( name eq "math" ) {
+			self._reconstruct_active_formatting_elements();
+			self.insertForeignElementForToken( token, MATHML_NAMESPACE_URI );
+			self.popElement() if token.selfClosing();
+			return false;
+		}
+		if ( name eq "svg" ) {
+			self._reconstruct_active_formatting_elements();
+			self.insertForeignElementForToken( token, SVG_NAMESPACE_URI );
+			self.popElement() if token.selfClosing();
 			return false;
 		}
 		if ( name eq "frameset" ) {
@@ -2496,10 +2808,7 @@ class HTMLTreeBuilder {
 	}
 
 	method insertElementForToken ( HTMLToken token ) {
-		let element := _document.createElement(token.tagName());
-		for ( let attr in token.attributes() ) {
-			element.setAttribute( attr{name}, attr{value} );
-		}
+		let element := self._create_element_for_token( token, HTML_NAMESPACE_URI );
 		self._insert_node_at_adjusted_location(element);
 		self.pushElement(element);
 		_head_element := element if element.tagName() eq "head";
@@ -2507,8 +2816,77 @@ class HTMLTreeBuilder {
 		return element;
 	}
 
+	method _foreign_tag_name ( HTMLToken token, String namespaceURI ) {
+		return namespaceURI eq SVG_NAMESPACE_URI
+			? _html_tb_svg_tag_name(token.tagName())
+			: token.tagName();
+	}
+
+	method _adjust_attr_name_for_ns ( String name, String namespaceURI ) {
+		if ( namespaceURI eq SVG_NAMESPACE_URI ) {
+			return _html_tb_svg_attr_name(name);
+		}
+		if ( namespaceURI eq MATHML_NAMESPACE_URI ) {
+			return _html_tb_mathml_attr_name(name);
+		}
+		return name;
+	}
+
+	method _copy_token_attributes ( element, HTMLToken token, String namespaceURI ) {
+		for ( let attr in token.attributes() ) {
+			let name := attr{name};
+			if ( name ~ /^xlink:/ ) {
+				element.setAttributeNS(
+					XLINK_NAMESPACE_URI,
+					"xlink:" _ substr( name, 6 ),
+					attr{value},
+				);
+			}
+			else if ( name ~ /^xml:/ ) {
+				element.setAttributeNS(
+					XML_NAMESPACE_URI,
+					"xml:" _ substr( name, 4 ),
+					attr{value},
+				);
+			}
+			else if ( name eq "xmlns" ) {
+				element.setAttributeNS( XMLNS_NAMESPACE_URI, "xmlns", attr{value} );
+			}
+			else if ( name ~ /^xmlns:/ ) {
+				element.setAttributeNS(
+					XMLNS_NAMESPACE_URI,
+					"xmlns:" _ substr( name, 6 ),
+					attr{value},
+				);
+			}
+			else {
+				element.setAttribute(
+					self._adjust_attr_name_for_ns( name, namespaceURI ),
+					attr{value},
+				);
+			}
+		}
+		return element;
+	}
+
+	method _create_element_for_token ( HTMLToken token, String namespaceURI ) {
+		let tag := namespaceURI eq HTML_NAMESPACE_URI
+			? token.tagName()
+			: self._foreign_tag_name( token, namespaceURI );
+		let element := _document.createElementNS( namespaceURI, tag );
+		self._copy_token_attributes( element, token, namespaceURI );
+		return element;
+	}
+
+	method insertForeignElementForToken ( HTMLToken token, String namespaceURI ) {
+		let element := self._create_element_for_token( token, namespaceURI );
+		self._insert_node_at_adjusted_location(element);
+		self.pushElement(element);
+		return element;
+	}
+
 	method insertHtmlElement ( String name ) {
-		let element := _document.createElement(name);
+		let element := _document.createElementNS( HTML_NAMESPACE_URI, name );
 		self._insert_node_at_adjusted_location(element);
 		self.pushElement(element);
 		_head_element := element if element.tagName() eq "head";
@@ -2576,6 +2954,31 @@ class HTMLTreeTestSerializer {
 		return out;
 	}
 
+	static method _element_label ( node ) {
+		if ( node.namespaceURI() eq SVG_NAMESPACE_URI ) {
+			return "svg " _ node.localName();
+		}
+		if ( node.namespaceURI() eq MATHML_NAMESPACE_URI ) {
+			return "math " _ node.localName();
+		}
+		return node.tagName();
+	}
+
+	static method _attribute_label ( Dict record ) {
+		if ( record{namespaceURI} eq XLINK_NAMESPACE_URI ) {
+			return "xlink " _ record{localName};
+		}
+		if ( record{namespaceURI} eq XML_NAMESPACE_URI ) {
+			return "xml " _ record{localName};
+		}
+		if ( record{namespaceURI} eq XMLNS_NAMESPACE_URI ) {
+			return record{prefix} ≡ null
+				? "xmlns"
+				: "xmlns " _ record{localName};
+		}
+		return record{qualifiedName};
+	}
+
 	static method _serialize_node ( node, Number depth, Array lines ) {
 		if ( node.nodeKind() eq "document" ) {
 			for ( let child in node.childNodes() ) {
@@ -2588,11 +2991,11 @@ class HTMLTreeTestSerializer {
 			return self;
 		}
 		if ( node.nodeKind() eq "element" ) {
-			lines.push(self._indent(depth) _ "<" _ node.tagName() _ ">");
-			for ( let name in node.attributeNames() ) {
+			lines.push(self._indent(depth) _ "<" _ self._element_label(node) _ ">");
+			for ( let record in node.attributeRecords() ) {
 				lines.push(
-					self._indent(depth + 1) _ name _ "=\""
-						_ _html_tb_quote_text(node.getAttribute(name)) _ "\"",
+					self._indent(depth + 1) _ self._attribute_label(record) _ "=\""
+						_ _html_tb_quote_text(record{value}) _ "\"",
 				);
 			}
 			if ( node.tagName() eq "template" ) {

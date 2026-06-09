@@ -8,7 +8,9 @@ from html/dom import
 	HTMLComment,
 	HTMLDocument,
 	HTMLDoctype,
+	HTML_NAMESPACE_URI,
 	HTMLElement,
+	SVG_NAMESPACE_URI,
 	HTMLNode,
 	HTMLText;
 from test/more import *;
@@ -66,7 +68,7 @@ is( comment.nodeKind(), "comment", "nodeKind comment" );
 is( doctype.nodeKind(), "doctype", "nodeKind doctype" );
 is( root.localName(), "html", "element localName" );
 is( doctype.localName(), "html", "doctype localName" );
-is( root.namespaceURI(), null, "namespaceURI defaults null" );
+is( root.namespaceURI(), HTML_NAMESPACE_URI, "HTML elements use HTML namespace" );
 isnt( root.uniqueKey(), body.uniqueKey(), "uniqueKey is unique" );
 is( root.uniqueKey(), root.unique_id(), "uniqueKey and unique_id agree" );
 
@@ -137,6 +139,31 @@ like(
 	} ),
 	/cannot insert text directly under document/,
 	"document rejects direct text",
+);
+
+let svg_el := doc.createElementNS( SVG_NAMESPACE_URI, "svg" );
+svg_el.setAttribute( "viewBox", "0 0 1 1" );
+svg_el.setAttributeNS(
+	"http://www.w3.org/1999/xlink",
+	"xlink:href",
+	"#icon",
+);
+is( svg_el.namespaceURI(), SVG_NAMESPACE_URI, "createElementNS namespace" );
+is( svg_el.localName(), "svg", "createElementNS localName" );
+is( svg_el.getAttribute("viewBox"), "0 0 1 1", "foreign attr display name" );
+is(
+	svg_el.getAttributeNS( "http://www.w3.org/1999/xlink", "href" ),
+	"#icon",
+	"getAttributeNS returns namespaced attribute",
+);
+ok(
+	svg_el.hasAttributeNS( "http://www.w3.org/1999/xlink", "href" ),
+	"hasAttributeNS sees namespaced attribute",
+);
+is(
+	svg_el.attributeRecords()[1]{prefix},
+	"xlink",
+	"attributeRecords exposes namespace prefix",
 );
 
 is( main.tagName(), "main", "tagName lowercases" );

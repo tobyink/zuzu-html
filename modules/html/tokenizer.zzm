@@ -19,9 +19,10 @@ tracks source position, emits HTML tokenizer tokens, and records
 non-fatal parse errors with line, column, offset, and tokenizer state.
 
 It intentionally does not build a DOM tree. C<html/parser> re-exports
-these classes, but C<HTML.parse> and C<HTMLParser.parse> remain
-document-parser placeholders until the tree-builder phases are
-implemented.
+these classes for focused tokenizer tests and for the tree builder. In
+Phase 6 the tokenizer also exposes C<setAllowCDATA> and C<allowCDATA> so
+the tree builder can recognise CDATA sections only while processing SVG
+or MathML foreign content.
 
 =head1 CHARACTER REFERENCES
 
@@ -35,9 +36,9 @@ no-semicolon forms used by HTML tokenization.
 
 =head1 NON-GOALS
 
-There is no tree construction, insertion-mode handling, DOM document
-output, html5lib C<.dat> harness, full CSS selector support, or full
-WHATWG named-character-reference table in this phase.
+There is no DOM tree construction inside this module, no html5lib
+C<.dat> harness, full CSS selector support, or full WHATWG
+named-character-reference table in this phase.
 
 =head1 COPYRIGHT AND LICENCE
 
@@ -478,6 +479,7 @@ class HTMLTokenizer {
 	let Number _read_index := 0;
 	let Boolean _tokenized := false;
 	let Boolean _eof_emitted := false;
+	let Boolean _allow_cdata := false;
 
 	method __build__ () {
 		self.reset( _input, _state );
@@ -495,6 +497,7 @@ class HTMLTokenizer {
 		_tokenized := false;
 		_eof_emitted := false;
 		_last_start_tag_name := null;
+		_allow_cdata := false;
 		return self;
 	}
 
@@ -514,6 +517,15 @@ class HTMLTokenizer {
 
 	method lastStartTagName () {
 		return _last_start_tag_name;
+	}
+
+	method setAllowCDATA ( Boolean allow ) {
+		_allow_cdata := allow ? true : false;
+		return self;
+	}
+
+	method allowCDATA () {
+		return _allow_cdata;
 	}
 
 	method errors () {
@@ -762,6 +774,10 @@ class HTMLTokenizer {
 			self._consume_string("!--");
 			return self._parse_comment();
 		}
+		if ( self._starts_with("![CDATA[") and _allow_cdata ) {
+			self._consume_string("![CDATA[");
+			return self._parse_cdata_section();
+		}
 		if ( self._starts_with("!DOCTYPE", true) ) {
 			self._consume_string(substr( _stream.peek(8), 0, 8 ));
 			return self._parse_doctype();
@@ -794,6 +810,22 @@ class HTMLTokenizer {
 			"Invalid first character of tag name",
 		);
 		return self._emit_character("<");
+	}
+
+	method _parse_cdata_section () {
+		let data := "";
+		while ( not _stream.eof() ) {
+			if ( self._starts_with("]]>") ) {
+				self._consume_string("]]>");
+				return self._emit_character(data);
+			}
+			data _= _stream.consume();
+		}
+		self._parse_error(
+			"eof-in-cdata",
+			"EOF in CDATA section",
+		);
+		return self._emit_character(data);
 	}
 
 	method _parse_tag_name () {

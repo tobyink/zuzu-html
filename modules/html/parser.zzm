@@ -18,13 +18,16 @@ the WHATWG HTML specification.
 
 The distribution currently contains the Phase 1 DOM core, the Phase 2
 input stream and tokenizer, the Phase 3 full-document tree-builder
-framework, the Phase 4 in-body rules, and the Phase 5 specialised
-table/select/template/frameset modes. C<HTML.parse> and
+framework, the Phase 4 in-body rules, the Phase 5 specialised
+table/select/template/frameset modes, and the Phase 6 SVG/MathML
+foreign-content rules. C<HTML.parse> and
 C<HTMLParser.parse> now build C<HTMLDocument> trees for ordinary body
 content including paragraph/list/heading recovery, active formatting
 reconstruction, adoption-agency recovery, forms, buttons, void
 elements, plaintext, table foster parenting, select recovery,
-template content, and framesets. Fragment parsing, file loading, and
+template content, framesets, SVG/MathML namespaces, adjusted foreign
+names, foreign attributes, integration points, and foreign CDATA
+sections. Fragment parsing, file loading, scripting behaviour, and
 dumping remain deferred.
 
 =head1 EXPORTS
@@ -93,10 +96,16 @@ from html/dom import
 	HTMLDocument,
 	HTMLDocumentFragment,
 	HTMLDoctype,
+	HTML_NAMESPACE_URI,
 	HTMLElement,
+	MATHML_NAMESPACE_URI,
+	SVG_NAMESPACE_URI,
 	HTMLTemplateElement,
 	HTMLNode,
-	HTMLText;
+	HTMLText,
+	XLINK_NAMESPACE_URI,
+	XML_NAMESPACE_URI,
+	XMLNS_NAMESPACE_URI;
 from html/tokenizer import
 	HTMLInputStream,
 	HTMLNamedCharacterReferences,

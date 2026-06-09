@@ -1,0 +1,174 @@
+from html/parser import
+	HTML,
+	HTMLParser,
+	HTMLTreeTestSerializer,
+	HTML_NAMESPACE_URI,
+	MATHML_NAMESPACE_URI,
+	SVG_NAMESPACE_URI,
+	XLINK_NAMESPACE_URI,
+	XML_NAMESPACE_URI,
+	XMLNS_NAMESPACE_URI;
+from test/more import *;
+
+function has_code ( Array errors, String code ) {
+	for ( let error in errors ) {
+		return true if error.code() eq code;
+	}
+	return false;
+}
+
+let basic := HTML.parse("<svg><circle></circle></svg><math><mi>x</mi></math>");
+let svg := basic.getElementsByTagName("svg")[0];
+let circle := basic.getElementsByTagName("circle")[0];
+let math := basic.getElementsByTagName("math")[0];
+let mi := basic.getElementsByTagName("mi")[0];
+is( basic.documentElement().namespaceURI(), HTML_NAMESPACE_URI, "html namespace root" );
+is( basic.getElementsByTagName("body")[0].namespaceURI(), HTML_NAMESPACE_URI, "body namespace" );
+is( svg.namespaceURI(), SVG_NAMESPACE_URI, "svg namespace" );
+is( circle.namespaceURI(), SVG_NAMESPACE_URI, "svg child namespace" );
+is( math.namespaceURI(), MATHML_NAMESPACE_URI, "math namespace" );
+is( mi.namespaceURI(), MATHML_NAMESPACE_URI, "math child namespace" );
+is( mi.textContent(), "x", "math text content" );
+
+let adjusted := HTML.parse(
+	"<svg><foreignobject></foreignobject><lineargradient><textpath></textpath>"
+		_ "</lineargradient><fegaussianblur></fegaussianblur></svg>",
+);
+is(
+	adjusted.getElementsByTagName("foreignObject")[0].localName(),
+	"foreignObject",
+	"SVG foreignobject adjusted",
+);
+is(
+	adjusted.getElementsByTagName("linearGradient")[0].localName(),
+	"linearGradient",
+	"SVG lineargradient adjusted",
+);
+is(
+	adjusted.getElementsByTagName("textPath")[0].localName(),
+	"textPath",
+	"SVG textpath adjusted",
+);
+is(
+	adjusted.getElementsByTagName("feGaussianBlur")[0].localName(),
+	"feGaussianBlur",
+	"SVG fe* name adjusted",
+);
+
+let attrs := HTML.parse(
+	"<svg viewbox='0 0 1 1' preserveaspectratio='none'>"
+		_ "<animate attributename='x'></animate></svg>"
+		_ "<math definitionurl='urn:x'></math>",
+);
+is( attrs.getElementsByTagName("svg")[0].getAttribute("viewBox"), "0 0 1 1", "SVG viewBox attr adjusted" );
+is(
+	attrs.getElementsByTagName("svg")[0].getAttribute("preserveAspectRatio"),
+	"none",
+	"SVG preserveAspectRatio attr adjusted",
+);
+is(
+	attrs.getElementsByTagName("animate")[0].getAttribute("attributeName"),
+	"x",
+	"SVG attributeName attr adjusted",
+);
+is(
+	attrs.getElementsByTagName("math")[0].getAttribute("definitionURL"),
+	"urn:x",
+	"MathML definitionURL attr adjusted",
+);
+
+let foreign_attrs := HTML.parse(
+	"<svg><use xlink:href='#x' xml:lang='en' "
+		_ "xmlns:xlink='http://www.w3.org/1999/xlink'></use></svg>",
+);
+let use := foreign_attrs.getElementsByTagName("use")[0];
+is( use.getAttribute("xlink:href"), "#x", "xlink attr display lookup" );
+is( use.getAttributeNS( XLINK_NAMESPACE_URI, "href" ), "#x", "xlink namespace lookup" );
+is( use.getAttributeNS( XML_NAMESPACE_URI, "lang" ), "en", "xml namespace lookup" );
+is(
+	use.getAttributeNS( XMLNS_NAMESPACE_URI, "xlink" ),
+	"http://www.w3.org/1999/xlink",
+	"xmlns namespace lookup",
+);
+is( use.attributeRecords()[0]{prefix}, "xlink", "attributeRecords xlink prefix" );
+
+let breakout_parser := new HTMLParser();
+let breakout := breakout_parser.parse("<svg><p>x</p></svg>");
+is( breakout.getElementsByTagName("svg")[0].children().length(), 0, "HTML breakout leaves SVG subtree" );
+is( breakout.getElementsByTagName("p")[0].namespaceURI(), HTML_NAMESPACE_URI, "breakout p is HTML" );
+ok( has_code( breakout_parser.errors(), "html-start-tag-in-foreign-content" ), "breakout records parse error" );
+
+let integration := HTML.parse(
+	"<svg><foreignobject><p>x</p></foreignobject></svg>"
+		_ "<svg><title><p>y</p></title></svg>"
+		_ "<math><mi><span>z</span></mi></math>"
+		_ "<math><annotation-xml encoding='text/html'><p>a</p>"
+		_ "</annotation-xml></math>",
+);
+is( integration.getElementsByTagName("foreignObject")[0].namespaceURI(), SVG_NAMESPACE_URI, "foreignObject remains SVG" );
+is( integration.getElementsByTagName("p")[0].namespaceURI(), HTML_NAMESPACE_URI, "foreignObject p is HTML" );
+is( integration.getElementsByTagName("title")[0].firstChild().namespaceURI(), HTML_NAMESPACE_URI, "SVG title is integration point" );
+is( integration.getElementsByTagName("span")[0].namespaceURI(), HTML_NAMESPACE_URI, "MathML text integration span is HTML" );
+is( integration.getElementsByTagName("annotation-xml")[0].firstChild().namespaceURI(), HTML_NAMESPACE_URI, "annotation-xml text/html p is HTML" );
+
+let nested_svg := HTML.parse(
+	"<math><annotation-xml encoding='application/xhtml+xml'>"
+		_ "<svg><circle></circle></svg></annotation-xml></math>",
+);
+is( nested_svg.getElementsByTagName("svg")[0].namespaceURI(), SVG_NAMESPACE_URI, "annotation-xml can enter SVG" );
+is( nested_svg.getElementsByTagName("circle")[0].namespaceURI(), SVG_NAMESPACE_URI, "annotation SVG child" );
+
+let mismatch_parser := new HTMLParser();
+mismatch_parser.parse("<svg><g></path></g></svg>");
+ok( has_code( mismatch_parser.errors(), "unexpected-foreign-end-tag" ), "foreign mismatch records error" );
+
+let cdata := HTML.parse("<svg><![CDATA[<not-a-tag>&text]]></svg>");
+is( cdata.getElementsByTagName("svg")[0].textContent(), "<not-a-tag>&text", "SVG CDATA becomes text" );
+let html_cdata_parser := new HTMLParser();
+html_cdata_parser.parse("<![CDATA[x]]>");
+ok( html_cdata_parser.errors().length() > 0, "HTML CDATA remains parse-error compatible" );
+let eof_cdata_parser := new HTMLParser();
+let eof_cdata := eof_cdata_parser.parse("<svg><![CDATA[x");
+is( eof_cdata.getElementsByTagName("svg")[0].textContent(), "x", "EOF CDATA keeps text" );
+ok( has_code( eof_cdata_parser.errors(), "eof-in-cdata" ), "EOF CDATA records tokenizer error" );
+
+let self_closed := HTML.parse("<svg><path /></svg>");
+is( self_closed.getElementsByTagName("path")[0].childNodes().length(), 0, "self-closing foreign path pops" );
+is( self_closed.getElementsByTagName("svg")[0].toHTML(), "<svg><path></path></svg>", "foreign path serializes explicit close" );
+let dom_br := self_closed.createElementNS( SVG_NAMESPACE_URI, "br" );
+is( dom_br.toHTML(), "<br></br>", "foreign br is not an HTML void element" );
+
+is(
+	attrs.getElementsByTagName("svg")[0].toHTML(),
+	"<svg preserveAspectRatio=\"none\" viewBox=\"0 0 1 1\"><animate attributeName=\"x\"></animate></svg>",
+	"toHTML preserves adjusted SVG names and attrs",
+);
+like(
+	HTMLTreeTestSerializer.serialize(foreign_attrs),
+	/<svg use>\n\|         xlink href="#x"\n\|         xml lang="en"\n\|         xmlns xlink="http:\/\/www\.w3\.org\/1999\/xlink"/,
+	"tree serializer emits namespaced attribute labels",
+);
+like(
+	HTMLTreeTestSerializer.serialize(basic),
+	/<svg svg>\n\|       <svg circle>/,
+	"tree serializer emits SVG namespace labels",
+);
+like(
+	HTMLTreeTestSerializer.serialize(basic),
+	/<math math>\n\|       <math mi>/,
+	"tree serializer emits MathML namespace labels",
+);
+
+let clone_svg := foreign_attrs.getElementsByTagName("svg")[0].cloneNode(true);
+ok( clone_svg.isEqualNode(foreign_attrs.getElementsByTagName("svg")[0]), "clone preserves namespace attrs" );
+is( clone_svg.firstChild().getAttributeNS( XLINK_NAMESPACE_URI, "href" ), "#x", "clone preserves xlink attr" );
+
+let reusable := new HTMLParser();
+reusable.parse("<svg><![CDATA[x");
+ok( reusable.errors().length() > 0, "first reusable foreign parse has errors" );
+let clean := reusable.parse("<p>clean</p>");
+is( clean.getElementsByTagName("p")[0].textContent(), "clean", "reuse after foreign parse works" );
+ok( not has_code( reusable.errors(), "eof-in-cdata" ), "reuse clears CDATA errors" );
+is( clean.getElementsByTagName("p")[0].namespaceURI(), HTML_NAMESPACE_URI, "reuse clears foreign namespace context" );
+
+done_testing();

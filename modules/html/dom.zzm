@@ -22,7 +22,8 @@ provided by C<std/data/xml>: construction, traversal, mutation,
 attributes, simple selector lookup, cloning, equality, tree walking, and
 serialization. Phase 5 adds the minimal C<template> DOM shape needed for
 HTML tree construction: C<HTMLTemplateElement> owns an
-C<HTMLDocumentFragment> returned by C<content()>.
+C<HTMLDocumentFragment> returned by C<content()>. Phase 6 makes elements
+and attributes namespace-aware for HTML, SVG, and MathML foreign content.
 
 Documents may be created manually through constructors and
 C<HTMLDocument> factory methods, or by C<html/parser>.
@@ -48,8 +49,10 @@ document is rejected.
 
 Element node class. It adds C<tagName>, C<id>, C<setId>,
 C<getAttribute>, C<setAttribute>, C<hasAttribute>,
-C<removeAttribute>, C<attributeNames>, C<attributes>, and descendant
-C<getElementsByTagName>.
+C<removeAttribute>, C<attributeNames>, C<attributes>, namespaced
+attribute methods, C<attributeRecords>, and descendant
+C<getElementsByTagName>. C<namespaceURI> and C<localName> are
+authoritative for HTML, SVG, and MathML elements.
 
 =item C<HTMLTemplateElement>, C<HTMLDocumentFragment>
 
@@ -64,6 +67,11 @@ Text, comment, and doctype node classes.
 C<DOMComment>, C<DOMDoctype>
 
 DOM-compatible aliases implemented as subclasses of the HTML classes.
+
+=item C<HTML_NAMESPACE_URI>, C<SVG_NAMESPACE_URI>, C<MATHML_NAMESPACE_URI>,
+C<XLINK_NAMESPACE_URI>, C<XML_NAMESPACE_URI>, C<XMLNS_NAMESPACE_URI>
+
+Namespace URI constants used by the parser and DOM namespace APIs.
 
 =back
 
@@ -81,9 +89,13 @@ selectors: tag names, C<#id>, C<.class>, and C<*>.
 Combinators, comma lists, pseudo-classes, namespace selectors, and
 attribute selectors throw clear unsupported-selector errors.
 
-=item * Namespace support is storage-only through C<namespaceURI>.
+=item * Namespace support covers the HTML, SVG, MathML, XLink, XML, and
+XMLNS namespace URIs used by the HTML tree builder.
 
-Phase 6 will expand this for MathML and SVG foreign content.
+Use C<createElementNS>, C<setAttributeNS>, C<getAttributeNS>,
+C<hasAttributeNS>, C<removeAttributeNS>, and C<attributeRecords> for
+namespace-aware code. The older attribute methods remain available and
+operate on serialized qualified names.
 
 =item * C<createCDATASection> returns an C<HTMLText> node.
 
@@ -112,6 +124,13 @@ from std/string import join, replace, split, substr, trim;
 
 let _HTML_DOM_NEXT_UID := 0;
 
+let HTML_NAMESPACE_URI := "http://www.w3.org/1999/xhtml";
+let SVG_NAMESPACE_URI := "http://www.w3.org/2000/svg";
+let MATHML_NAMESPACE_URI := "http://www.w3.org/1998/Math/MathML";
+let XLINK_NAMESPACE_URI := "http://www.w3.org/1999/xlink";
+let XML_NAMESPACE_URI := "http://www.w3.org/XML/1998/namespace";
+let XMLNS_NAMESPACE_URI := "http://www.w3.org/2000/xmlns/";
+
 function _html_dom_die ( String message ) {
 	die "html/dom: " _ message;
 }
@@ -129,6 +148,57 @@ function _html_dom_name ( value ) {
 	let name := lc(trim(_html_dom_string(value)));
 	_html_dom_die("empty element or attribute name") if name eq "";
 	return name;
+}
+
+function _html_dom_qname_parts ( value ) {
+	let qname := trim(_html_dom_string(value));
+	_html_dom_die("empty qualified name") if qname eq "";
+	let bits := split( qname, ":" );
+	_html_dom_die("malformed qualified name") if bits.length() > 2;
+	if ( bits.length() == 2 ) {
+		_html_dom_die("malformed qualified name")
+			if bits[0] eq "" or bits[1] eq "";
+		return { prefix: bits[0], localName: bits[1], qualifiedName: qname };
+	}
+	return { prefix: null, localName: qname, qualifiedName: qname };
+}
+
+function _html_dom_normal_namespace ( namespaceURI ) {
+	return null if namespaceURI ≡ null;
+	let ns := _html_dom_string(namespaceURI);
+	return null if ns eq "";
+	return ns;
+}
+
+function _html_dom_attribute_record (
+	namespaceURI,
+	qualifiedName,
+	value,
+	Boolean html_name := false,
+) {
+	let parts := _html_dom_qname_parts(qualifiedName);
+	let display := html_name ? _html_dom_name(qualifiedName) : parts{qualifiedName};
+	let local := html_name ? display : parts{localName};
+	let prefix := html_name ? null : parts{prefix};
+	return {
+		name: display,
+		qualifiedName: display,
+		localName: local,
+		prefix: prefix,
+		namespaceURI: _html_dom_normal_namespace(namespaceURI),
+		value: _html_dom_string(value),
+	};
+}
+
+function _html_dom_copy_attr_record ( Dict record ) {
+	return {
+		name: record{name},
+		qualifiedName: record{qualifiedName},
+		localName: record{localName},
+		prefix: record{prefix},
+		namespaceURI: record{namespaceURI},
+		value: record{value},
+	};
 }
 
 function _html_dom_copy_array ( Array values ) {
@@ -558,11 +628,21 @@ class HTMLNode {
 			return false if self.systemId() ne other.systemId();
 		}
 		if ( self.nodeKind() eq "element" ) {
+			return false if self.namespaceURI() ne other.namespaceURI();
+			return false if self.localName() ne other.localName();
 			let names := self.attributeNames();
 			let other_names := other.attributeNames();
 			return false if names.length() != other_names.length();
-			for ( let name in names ) {
-				return false if self.getAttribute(name) ne other.getAttribute(name);
+			let records := self.attributeRecords();
+			let other_records := other.attributeRecords();
+			let i := 0;
+			while ( i < records.length() ) {
+				return false if records[i]{qualifiedName} ne other_records[i]{qualifiedName};
+				return false if records[i]{localName} ne other_records[i]{localName};
+				return false if records[i]{namespaceURI} ne other_records[i]{namespaceURI};
+				return false if records[i]{prefix} ne other_records[i]{prefix};
+				return false if records[i]{value} ne other_records[i]{value};
+				i++;
 			}
 		}
 		return false if _child_nodes.length() != other.childNodes().length();
@@ -615,7 +695,7 @@ class HTMLNode {
 			return false;
 		}
 		if ( selector ~ /^[A-Za-z][A-Za-z0-9_-]*$/ ) {
-			return self.tagName() eq lc(selector);
+			return lc(self.tagName()) eq lc(selector);
 		}
 		_html_dom_die("unsupported selector: " _ selector);
 	}
@@ -690,7 +770,8 @@ class HTMLNode {
 		if ( self.nodeKind() eq "element" ) {
 			let tag := self.tagName();
 			let out := "<" _ tag _ self._serialize_attrs() _ ">";
-			return out if _html_dom_is_void_element(tag);
+			return out if self.namespaceURI() eq HTML_NAMESPACE_URI
+				and _html_dom_is_void_element(tag);
 			for ( let child in _child_nodes ) {
 				out _= child.toHTML(false);
 			}
@@ -729,11 +810,23 @@ class HTMLNode {
 class HTMLElement extends HTMLNode {
 	let String _tag_name := "";
 	let Dict _attributes := {};
-	let _namespace_uri := null;
+	let Array _attribute_records := [];
+	let _namespace_uri := HTML_NAMESPACE_URI;
+	let _prefix := null;
 
 	method __build__ () {
-		_tag_name := _html_dom_name(_tag_name);
+		if ( _namespace_uri ≡ null or _namespace_uri eq HTML_NAMESPACE_URI ) {
+			_namespace_uri := HTML_NAMESPACE_URI;
+			_tag_name := _html_dom_name(_tag_name);
+		}
+		else {
+			let parts := _html_dom_qname_parts(_tag_name);
+			_prefix := parts{prefix} if _prefix ≡ null;
+			_tag_name := parts{localName};
+		}
 		_attributes := {} if _attributes ≡ null;
+		_attribute_records := [] if _attribute_records ≡ null;
+		self._sync_attribute_index();
 		self._configure_node( "element", _tag_name );
 		self._init_node();
 	}
@@ -750,6 +843,40 @@ class HTMLElement extends HTMLNode {
 		return _namespace_uri;
 	}
 
+	method _sync_attribute_index () {
+		_attributes := {};
+		for ( let record in _attribute_records ) {
+			_attributes{(record{qualifiedName})} := record{value};
+		}
+		return self;
+	}
+
+	method _find_attr_index_by_name ( String name ) {
+		let wanted := _namespace_uri eq HTML_NAMESPACE_URI
+			? _html_dom_name(name)
+			: _html_dom_string(name);
+		let i := 0;
+		while ( i < _attribute_records.length() ) {
+			return i if _attribute_records[i]{qualifiedName} eq wanted;
+			return i if _namespace_uri eq HTML_NAMESPACE_URI
+				and lc(_attribute_records[i]{qualifiedName}) eq wanted;
+			i++;
+		}
+		return -1;
+	}
+
+	method _find_attr_index_ns ( namespaceURI, String localName ) {
+		let ns := _html_dom_normal_namespace(namespaceURI);
+		let local := _html_dom_string(localName);
+		let i := 0;
+		while ( i < _attribute_records.length() ) {
+			return i if _attribute_records[i]{namespaceURI} eq ns
+				and _attribute_records[i]{localName} eq local;
+			i++;
+		}
+		return -1;
+	}
+
 	method id () {
 		return self.getAttribute("id");
 	}
@@ -759,29 +886,100 @@ class HTMLElement extends HTMLNode {
 	}
 
 	method getAttribute ( name ) {
-		let key := _html_dom_name(name);
-		return null unless _attributes.exists(key);
-		return _attributes{(key)};
+		let i := self._find_attr_index_by_name(name);
+		return null if i < 0;
+		return _attribute_records[i]{value};
 	}
 
 	method setAttribute ( name, value ) {
-		let key := _html_dom_name(name);
-		_attributes{(key)} := _html_dom_string(value);
+		let record := _html_dom_attribute_record(
+			null,
+			name,
+			value,
+			_namespace_uri eq HTML_NAMESPACE_URI,
+		);
+		let i := self._find_attr_index_by_name(record{qualifiedName});
+		if ( i >= 0 ) {
+			_attribute_records[i] := record;
+		}
+		else {
+			_attribute_records.push(record);
+		}
+		self._sync_attribute_index();
 		return self;
 	}
 
 	method hasAttribute ( name ) {
-		return _attributes.exists(_html_dom_name(name));
+		return self._find_attr_index_by_name(name) >= 0;
 	}
 
 	method removeAttribute ( name ) {
-		let key := _html_dom_name(name);
-		_attributes.remove(key) if _attributes.exists(key);
+		let i := self._find_attr_index_by_name(name);
+		if ( i >= 0 ) {
+			let kept := [];
+			let j := 0;
+			while ( j < _attribute_records.length() ) {
+				kept.push(_attribute_records[j]) unless j == i;
+				j++;
+			}
+			_attribute_records := kept;
+			self._sync_attribute_index();
+		}
+		return self;
+	}
+
+	method getAttributeNS ( namespaceURI, String localName ) {
+		let i := self._find_attr_index_ns( namespaceURI, localName );
+		return null if i < 0;
+		return _attribute_records[i]{value};
+	}
+
+	method setAttributeNS ( namespaceURI, qualifiedName, value ) {
+		let record := _html_dom_attribute_record(
+			namespaceURI,
+			qualifiedName,
+			value,
+			false,
+		);
+		let i := self._find_attr_index_ns(
+			record{namespaceURI},
+			record{localName},
+		);
+		if ( i >= 0 ) {
+			_attribute_records[i] := record;
+		}
+		else {
+			_attribute_records.push(record);
+		}
+		self._sync_attribute_index();
+		return self;
+	}
+
+	method hasAttributeNS ( namespaceURI, String localName ) {
+		return self._find_attr_index_ns( namespaceURI, localName ) >= 0;
+	}
+
+	method removeAttributeNS ( namespaceURI, String localName ) {
+		let i := self._find_attr_index_ns( namespaceURI, localName );
+		if ( i >= 0 ) {
+			let kept := [];
+			let j := 0;
+			while ( j < _attribute_records.length() ) {
+				kept.push(_attribute_records[j]) unless j == i;
+				j++;
+			}
+			_attribute_records := kept;
+			self._sync_attribute_index();
+		}
 		return self;
 	}
 
 	method attributeNames () {
-		return _attributes.keys().sort( fn ( a, b ) -> a cmp b );
+		let out := [];
+		for ( let record in _attribute_records ) {
+			out.push(record{qualifiedName});
+		}
+		return out.sort( fn ( a, b ) -> a cmp b );
 	}
 
 	method attributes () {
@@ -792,19 +990,31 @@ class HTMLElement extends HTMLNode {
 		return out;
 	}
 
+	method attributeRecords () {
+		let out := [];
+		for ( let name in self.attributeNames() ) {
+			for ( let record in _attribute_records ) {
+				out.push(_html_dom_copy_attr_record(record))
+					if record{qualifiedName} eq name;
+			}
+		}
+		return out;
+	}
+
 	method getElementsByTagName ( name ) {
 		let wanted := lc(_html_dom_string(name));
 		let out := [];
 		for ( let node in self._descendant_elements() ) {
-			out.push(node) if wanted eq "*" or node.tagName() eq wanted;
+			out.push(node) if wanted eq "*" or lc(node.tagName()) eq wanted;
 		}
 		return out;
 	}
 
 	method _serialize_attrs () {
 		let out := "";
-		for ( let name in self.attributeNames() ) {
-			out _= " " _ name _ "=\"" _ _html_dom_escape_attr(_attributes{(name)})
+		for ( let record in self.attributeRecords() ) {
+			out _= " " _ record{qualifiedName} _ "=\""
+				_ _html_dom_escape_attr(record{value})
 				_ "\"";
 		}
 		return out;
@@ -814,10 +1024,20 @@ class HTMLElement extends HTMLNode {
 		let clone := new HTMLElement(
 			_tag_name: self.tagName(),
 			_namespace_uri: self.namespaceURI(),
+			_prefix: _prefix,
 			_owner_document: self.ownerDocument(),
 		);
-		for ( let name in self.attributeNames() ) {
-			clone.setAttribute( name, self.getAttribute(name) );
+		for ( let record in self.attributeRecords() ) {
+			if ( record{namespaceURI} ≡ null ) {
+				clone.setAttribute( record{qualifiedName}, record{value} );
+			}
+			else {
+				clone.setAttributeNS(
+					record{namespaceURI},
+					record{qualifiedName},
+					record{value},
+				);
+			}
 		}
 		return self._clone_children_into( clone, deep );
 	}
@@ -840,12 +1060,16 @@ class HTMLDocumentFragment extends HTMLNode {
 class HTMLTemplateElement extends HTMLElement {
 	let String _tag_name := "template";
 	let Dict _attributes := {};
-	let _namespace_uri := null;
+	let Array _attribute_records := [];
+	let _namespace_uri := HTML_NAMESPACE_URI;
+	let _prefix := null;
 	let _content := null;
 
 	method __build__ () {
 		_tag_name := "template";
 		_attributes := {} if _attributes ≡ null;
+		_attribute_records := [] if _attribute_records ≡ null;
+		self._sync_attribute_index();
 		self._configure_node( "element", _tag_name );
 		self._init_node();
 		_content := new HTMLDocumentFragment(
@@ -878,29 +1102,49 @@ class HTMLTemplateElement extends HTMLElement {
 	}
 
 	method getAttribute ( name ) {
-		let key := _html_dom_name(name);
-		return null unless _attributes.exists(key);
-		return _attributes{(key)};
+		let i := self._find_attr_index_by_name(name);
+		return null if i < 0;
+		return _attribute_records[i]{value};
 	}
 
 	method setAttribute ( name, value ) {
-		let key := _html_dom_name(name);
-		_attributes{(key)} := _html_dom_string(value);
+		let record := _html_dom_attribute_record( null, name, value, true );
+		let i := self._find_attr_index_by_name(record{qualifiedName});
+		if ( i >= 0 ) {
+			_attribute_records[i] := record;
+		}
+		else {
+			_attribute_records.push(record);
+		}
+		self._sync_attribute_index();
 		return self;
 	}
 
 	method hasAttribute ( name ) {
-		return _attributes.exists(_html_dom_name(name));
+		return self._find_attr_index_by_name(name) >= 0;
 	}
 
 	method removeAttribute ( name ) {
-		let key := _html_dom_name(name);
-		_attributes.remove(key) if _attributes.exists(key);
+		let i := self._find_attr_index_by_name(name);
+		if ( i >= 0 ) {
+			let kept := [];
+			let j := 0;
+			while ( j < _attribute_records.length() ) {
+				kept.push(_attribute_records[j]) unless j == i;
+				j++;
+			}
+			_attribute_records := kept;
+			self._sync_attribute_index();
+		}
 		return self;
 	}
 
 	method attributeNames () {
-		return _attributes.keys().sort( fn ( a, b ) -> a cmp b );
+		let out := [];
+		for ( let record in _attribute_records ) {
+			out.push(record{qualifiedName});
+		}
+		return out.sort( fn ( a, b ) -> a cmp b );
 	}
 
 	method attributes () {
@@ -911,19 +1155,31 @@ class HTMLTemplateElement extends HTMLElement {
 		return out;
 	}
 
+	method attributeRecords () {
+		let out := [];
+		for ( let name in self.attributeNames() ) {
+			for ( let record in _attribute_records ) {
+				out.push(_html_dom_copy_attr_record(record))
+					if record{qualifiedName} eq name;
+			}
+		}
+		return out;
+	}
+
 	method getElementsByTagName ( name ) {
 		let wanted := lc(_html_dom_string(name));
 		let out := [];
 		for ( let node in self._descendant_elements() ) {
-			out.push(node) if wanted eq "*" or node.tagName() eq wanted;
+			out.push(node) if wanted eq "*" or lc(node.tagName()) eq wanted;
 		}
 		return out;
 	}
 
 	method _serialize_attrs () {
 		let out := "";
-		for ( let name in self.attributeNames() ) {
-			out _= " " _ name _ "=\"" _ _html_dom_escape_attr(_attributes{(name)})
+		for ( let record in self.attributeRecords() ) {
+			out _= " " _ record{qualifiedName} _ "=\""
+				_ _html_dom_escape_attr(record{value})
 				_ "\"";
 		}
 		return out;
@@ -961,12 +1217,19 @@ class HTMLTemplateElement extends HTMLElement {
 		return false unless other instanceof HTMLTemplateElement;
 		return false if self.nodeType() ne other.nodeType();
 		return false if self.nodeName() ne other.nodeName();
+		return false if self.namespaceURI() ne other.namespaceURI();
 
-		let names := self.attributeNames();
-		let other_names := other.attributeNames();
-		return false if names.length() != other_names.length();
-		for ( let name in names ) {
-			return false if self.getAttribute(name) ne other.getAttribute(name);
+		let records := self.attributeRecords();
+		let other_records := other.attributeRecords();
+		return false if records.length() != other_records.length();
+		let r := 0;
+		while ( r < records.length() ) {
+			return false if records[r]{qualifiedName} ne other_records[r]{qualifiedName};
+			return false if records[r]{localName} ne other_records[r]{localName};
+			return false if records[r]{namespaceURI} ne other_records[r]{namespaceURI};
+			return false if records[r]{prefix} ne other_records[r]{prefix};
+			return false if records[r]{value} ne other_records[r]{value};
+			r++;
 		}
 
 		let children := _content.childNodes();
@@ -984,8 +1247,17 @@ class HTMLTemplateElement extends HTMLElement {
 		let clone := new HTMLTemplateElement(
 			_owner_document: self.ownerDocument(),
 		);
-		for ( let name in self.attributeNames() ) {
-			clone.setAttribute( name, self.getAttribute(name) );
+		for ( let record in self.attributeRecords() ) {
+			if ( record{namespaceURI} ≡ null ) {
+				clone.setAttribute( record{qualifiedName}, record{value} );
+			}
+			else {
+				clone.setAttributeNS(
+					record{namespaceURI},
+					record{qualifiedName},
+					record{value},
+				);
+			}
 		}
 		if ( deep ) {
 			for ( let child in _content.childNodes() ) {
@@ -1111,6 +1383,22 @@ class HTMLDocument extends HTMLNode {
 		) if _html_dom_name(name) eq "template";
 		return new HTMLElement(
 			_tag_name: _html_dom_name(name),
+			_namespace_uri: HTML_NAMESPACE_URI,
+			_owner_document: self,
+		);
+	}
+
+	method createElementNS ( namespaceURI, qualifiedName ) {
+		let ns := _html_dom_normal_namespace(namespaceURI);
+		ns := HTML_NAMESPACE_URI if ns ≡ null;
+		let parts := _html_dom_qname_parts(qualifiedName);
+		if ( ns eq HTML_NAMESPACE_URI ) {
+			return self.createElement(parts{localName});
+		}
+		return new HTMLElement(
+			_tag_name: parts{localName},
+			_namespace_uri: ns,
+			_prefix: parts{prefix},
 			_owner_document: self,
 		);
 	}
@@ -1145,7 +1433,7 @@ class HTMLDocument extends HTMLNode {
 		let wanted := lc(_html_dom_string(name));
 		let out := [];
 		for ( let node in self._descendant_elements() ) {
-			out.push(node) if wanted eq "*" or node.tagName() eq wanted;
+			out.push(node) if wanted eq "*" or lc(node.tagName()) eq wanted;
 		}
 		return out;
 	}

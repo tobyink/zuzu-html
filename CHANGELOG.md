@@ -27,8 +27,17 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
   in table scope.
 - Tree-test serializer no longer escapes quotes (html5lib format is
   raw).
+- Full WHATWG named character reference table (2231 entities,
+  generated from entities.json) with longest-prefix matching and the
+  attribute-value legacy exception; numeric references preserve the
+  case of "X" when no digits follow.
+- Spec-conformant U+0000 handling across the data state, in body,
+  in select, foreign content, and bogus comments.
+- Relaxed select parsing (unknown start tags use the in-body rules);
+  foreign attribute namespace adjustment is restricted to SVG/MathML
+  elements.
 - html5lib tree-construction expected failures reduced from 1021 to
-  645.
+  491.
 
 ## 0.0.1 - 2026-06-10
 

@@ -45,8 +45,8 @@ ok(
 );
 is(
 	HTMLNamedCharacterReferences.coverage(),
-	"partial",
-	"named reference table reports partial coverage",
+	"full",
+	"named reference table reports full coverage",
 );
 
 let stream := new HTMLInputStream( _input: "a\r\nb\rc" );
@@ -219,7 +219,7 @@ is(
 let attr_refs := tok("<p title=\"Tom &amp Jerry &notin;\">");
 is(
 	attr_refs.getAttribute("title"),
-	"Tom & Jerry &notin;",
+	"Tom & Jerry " _ chr(8713),
 	"attribute references follow attribute-sensitive behaviour",
 );
 

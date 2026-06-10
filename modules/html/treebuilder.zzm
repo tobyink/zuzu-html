@@ -111,7 +111,7 @@ from html/dom import
 	XML_NAMESPACE_URI,
 	XMLNS_NAMESPACE_URI;
 from html/tokenizer import HTMLParseError, HTMLToken, HTMLTokenizer;
-from std/string import join, replace, starts_with, substr;
+from std/string import chr, join, replace, starts_with, substr;
 
 function _html_tb_string ( value ) {
 	return value ≡ null ? "" : "" _ value;
@@ -1446,8 +1446,13 @@ class HTMLTreeBuilder {
 
 	method _process_foreign_content ( HTMLToken token ) {
 		if ( token.type() eq "Character" ) {
-			self.insertCharacter(token.data());
-			_frameset_ok := false unless _html_tb_is_ws(token.data());
+			let data := replace( token.data(), chr(0), chr(65533), "g" );
+			self.insertCharacter(data);
+			// U+0000 replacements do not clear the frameset-ok flag;
+			// only genuine non-whitespace content does.
+			let stripped := replace( token.data(), chr(0), "", "g" );
+			_frameset_ok := false
+				unless stripped eq "" or _html_tb_is_ws(stripped);
 			return false;
 		}
 		if ( token.type() eq "Comment" ) {
@@ -1747,9 +1752,11 @@ class HTMLTreeBuilder {
 
 	method _mode_in_body ( HTMLToken token ) {
 		if ( token.type() eq "Character" ) {
+			let data := replace( token.data(), chr(0), "", "g" );
+			return false if data eq "";
 			self._reconstruct_active_formatting_elements();
-			self.insertCharacter(token.data());
-			_frameset_ok := false unless _html_tb_is_ws(token.data());
+			self.insertCharacter(data);
+			_frameset_ok := false unless _html_tb_is_ws(data);
 			return false;
 		}
 		if ( token.type() eq "Comment" ) {
@@ -2561,7 +2568,8 @@ class HTMLTreeBuilder {
 
 	method _mode_in_select ( HTMLToken token ) {
 		if ( token.type() eq "Character" ) {
-			self.insertCharacter(token.data());
+			let data := replace( token.data(), chr(0), "", "g" );
+			self.insertCharacter(data) if data ne "";
 			return false;
 		}
 		if ( token.type() eq "Comment" ) {

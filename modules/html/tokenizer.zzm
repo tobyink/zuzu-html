@@ -721,11 +721,13 @@ class HTMLTokenizer {
 			}
 			let ch := _stream.consume();
 			if ( ch eq chr(0) ) {
+				// Data state: parse error, but the U+0000 itself is
+				// emitted; the tree builder decides what to do with it.
 				self._parse_error_at_last(
 					"unexpected-null-character",
 					"Unexpected null character",
 				);
-				text _= chr(65533);
+				text _= ch;
 			}
 			else {
 				text _= ch;
@@ -1593,6 +1595,14 @@ class HTMLTokenizer {
 		while ( not _stream.eof() ) {
 			let ch := _stream.consume();
 			last if ch eq ">";
+			if ( ch eq chr(0) ) {
+				self._parse_error_at_last(
+					"unexpected-null-character",
+					"Unexpected null character",
+				);
+				data _= chr(65533);
+				next;
+			}
 			data _= ch;
 		}
 		return self._emit(new HTMLToken(

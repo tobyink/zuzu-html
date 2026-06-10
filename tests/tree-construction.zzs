@@ -290,7 +290,10 @@ for ( let path in _fixture_paths() ) {
 			xfailed_variants++ if reason ≢ null;
 
 			let actual := _parse_case( test_case, script_mode );
-			let matched := actual{tree} eq test_case{expected_tree};
+			// Normalise the actual tree like the fixture text: literal
+			// CRs in the DOM (e.g. from &#x0D;) compare as newlines.
+			let matched := _normalise_fixture_text(actual{tree})
+				eq test_case{expected_tree};
 			error_count_mismatches++
 				if actual{error_count} != test_case{expected_error_count};
 			todo_passes++ if matched and reason ≢ null;

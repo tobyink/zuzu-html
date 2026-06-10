@@ -111,7 +111,7 @@ from html/dom import
 	XML_NAMESPACE_URI,
 	XMLNS_NAMESPACE_URI;
 from html/tokenizer import HTMLParseError, HTMLToken, HTMLTokenizer;
-from std/string import join, replace, substr;
+from std/string import join, replace, starts_with, substr;
 
 function _html_tb_string ( value ) {
 	return value ≡ null ? "" : "" _ value;
@@ -437,9 +437,9 @@ function _html_tb_same_element_shape ( a, b ) {
 }
 
 function _html_tb_quote_text ( String text ) {
-	let out := replace( text, "\"", "\\\"", "g" );
-	out := replace( out, "\n", "\\n", "g" );
-	return out;
+	// html5lib's tree format writes text and attribute values raw,
+	// without escaping quote characters.
+	return text;
 }
 
 class HTMLTreeConstructionResult {
@@ -487,6 +487,7 @@ class HTMLTreeBuilder {
 	let String _insertion_mode := "initial";
 	let String _original_insertion_mode := "initial";
 	let Boolean _frameset_ok := true;
+	let Boolean _ignore_next_lf := false;
 	let Boolean _scripting := false;
 	let Boolean _finished := false;
 	let Array _errors := [];
@@ -1135,11 +1136,10 @@ class HTMLTreeBuilder {
 	}
 
 	method _start_headish_in_body ( HTMLToken token ) {
-		return null if token.tagName() eq "noscript" and not _scripting;
-		if ( [ "base", "link", "meta", "style", "title" ].contains(token.tagName()) ) {
-			return self._mode_in_head(token);
-		}
-		if ( token.tagName() eq "script" or token.tagName() eq "noscript" ) {
+		if (
+			[ "base", "basefont", "bgsound", "link", "meta", "noframes",
+				"script", "style", "title" ].contains(token.tagName())
+		) {
 			return self._mode_in_head(token);
 		}
 		return null;
@@ -1147,12 +1147,16 @@ class HTMLTreeBuilder {
 
 	method _close_p ( token := null ) {
 		if ( not self.hasElementInButtonScope("p") ) {
+			// Spec: act as if a "p" start tag had been seen, then close it,
+			// leaving an empty p element behind.
 			self.parseError(
 				"unexpected-end-tag-p",
 				"p element is not in button scope",
 				token,
 			);
 			self.insertHtmlElement("p");
+			self.popElement();
+			return self;
 		}
 		self._generate_implied_end_tags("p");
 		self.parseError( "misnested-end-tag", "Misnested p end tag", token )
@@ -1373,6 +1377,17 @@ class HTMLTreeBuilder {
 	}
 
 	method _process_token ( HTMLToken token ) {
+		if ( _ignore_next_lf ) {
+			_ignore_next_lf := false;
+			if ( token.type() eq "Character" and starts_with( token.data(), "\n" ) ) {
+				let rest := substr( token.data(), 1 );
+				return false if rest eq "";
+				return self._process_token(new HTMLToken(
+					_type: "Character",
+					_data: rest,
+				));
+			}
+		}
 		if (
 			self._is_foreign_context()
 			and not self._should_process_using_html_rules(token)
@@ -1624,7 +1639,7 @@ class HTMLTreeBuilder {
 		}
 		if (
 			token.type() eq "StartTag" and
-			[ "base", "link", "meta" ].contains(token.tagName())
+			[ "base", "basefont", "bgsound", "link", "meta" ].contains(token.tagName())
 		) {
 			self.insertElementForToken(token);
 			self.popElement();
@@ -1637,6 +1652,17 @@ class HTMLTreeBuilder {
 		}
 		if ( token.type() eq "EOF" ) {
 			self.parseError( "eof-in-head", "EOF in head", token );
+		}
+		if (
+			token.type() eq "EndTag" and
+			not [ "body", "html", "br" ].contains(token.tagName())
+		) {
+			self.parseError(
+				"unexpected-end-tag-in-head",
+				"Unexpected " _ token.tagName() _ " end tag in head; ignored",
+				token,
+			);
+			return false;
 		}
 		self.popElement();
 		self.switchTo("after head");
@@ -1848,6 +1874,7 @@ class HTMLTreeBuilder {
 		if ( name eq "pre" or name eq "listing" ) {
 			self._close_p(token) if self.hasElementInButtonScope("p");
 			self.insertElementForToken(token);
+			_ignore_next_lf := true;
 			_frameset_ok := false;
 			return false;
 		}
@@ -1932,6 +1959,32 @@ class HTMLTreeBuilder {
 			self.insertElementForToken(token);
 			_tokenizer.setState("plaintext");
 			_frameset_ok := false;
+			return false;
+		}
+		if ( name eq "textarea" ) {
+			self.insertElementForToken(token);
+			_ignore_next_lf := true;
+			_frameset_ok := false;
+			self._enter_text_mode( "rcdata", token.tagName() );
+			return false;
+		}
+		if ( name eq "xmp" ) {
+			self._close_p(token) if self.hasElementInButtonScope("p");
+			self._reconstruct_active_formatting_elements();
+			_frameset_ok := false;
+			self.insertElementForToken(token);
+			self._enter_text_mode( "rawtext", token.tagName() );
+			return false;
+		}
+		if ( name eq "iframe" ) {
+			_frameset_ok := false;
+			self.insertElementForToken(token);
+			self._enter_text_mode( "rawtext", token.tagName() );
+			return false;
+		}
+		if ( name eq "noembed" or ( name eq "noscript" and _scripting ) ) {
+			self.insertElementForToken(token);
+			self._enter_text_mode( "rawtext", token.tagName() );
 			return false;
 		}
 		if ( name eq "template" ) {
@@ -2239,9 +2292,30 @@ class HTMLTreeBuilder {
 	}
 
 	method _mode_in_column_group ( HTMLToken token ) {
-		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
-			self.insertCharacter(token.data());
-			return false;
+		if ( token.type() eq "Character" ) {
+			let data := token.data();
+			let leading := 0;
+			while (
+				leading < length(data)
+				and _html_tb_is_ws(substr(data, leading, 1))
+			) {
+				leading++;
+			}
+			if ( leading > 0 ) {
+				let ws := substr(data, 0, leading);
+				self.insertCharacter(ws);
+				if ( leading >= length(data) ) {
+					return false;
+				}
+				data := substr(data, leading);
+				return self._mode_in_table(
+					new HTMLToken( _type: "Character", _data: data ),
+				);
+			}
+			if ( _html_tb_is_ws(data) ) {
+				self.insertCharacter(data);
+				return false;
+			}
 		}
 		if ( token.type() eq "Comment" ) {
 			self.insertComment(token);
@@ -2478,6 +2552,9 @@ class HTMLTreeBuilder {
 					token,
 				);
 				return self._select_end(token);
+			}
+			if ( name eq "template" ) {
+				return self._process_using_in_head(token);
 			}
 			if ( _html_tb_table_structural_element(name) or name eq "table" ) {
 				return self._mode_in_select_in_table(token);

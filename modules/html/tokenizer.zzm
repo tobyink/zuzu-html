@@ -630,7 +630,7 @@ class HTMLTokenizer {
 				self._tokenize_text_mode( "rawtext", false );
 			}
 			else if ( _state eq "script_data" ) {
-				self._tokenize_text_mode( "script_data", false );
+				self._tokenize_script_data();
 			}
 			else if ( _state eq "plaintext" ) {
 				self._tokenize_plaintext();
@@ -804,6 +804,497 @@ class HTMLTokenizer {
 		self._emit_character(text);
 		if ( not _stream.eof() ) {
 			self._consume_markup();
+		}
+		return self;
+	}
+
+	method _tokenize_script_data () {
+		let state := "script_data";
+		let text := "";
+		let tag_name := "";
+		let tag_text := "";
+		let temp_buffer := "";
+		while ( true ) {
+			if ( _stream.eof() ) {
+				if ( state eq "script_data_less_than_sign" ) {
+					text _= "<";
+				}
+				else if ( state eq "script_data_end_tag_open" ) {
+					text _= "</";
+				}
+				else if ( state eq "script_data_end_tag_name" ) {
+					text _= "</" _ tag_text;
+				}
+				else if ( state eq "script_data_escaped_less_than_sign" ) {
+					text _= "<";
+				}
+				else if ( state eq "script_data_escaped_end_tag_open" ) {
+					text _= "</";
+				}
+				else if ( state eq "script_data_escaped_end_tag_name" ) {
+					text _= "</" _ tag_text;
+				}
+				else if ( state eq "script_data_double_escaped_less_than_sign" ) {
+					// The "<" was already appended on entry to this state.
+				}
+				else if ( state eq "script_data_double_escaped" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_escaped" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_escaped_dash" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_escaped_dash_dash" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_double_escaped" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_double_escaped_dash" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_double_escaped_dash_dash" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_double_escape_start" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+				}
+				else if ( state eq "script_data_double_escape_end" ) {
+					self._parse_error(
+						"eof-in-script-html-comment-like-text",
+						"EOF in script html comment-like text",
+					);
+			}
+			self._emit_character(text) if text ne "";
+			return self;
+		}
+			let ch := _stream.consume();
+			if ( state eq "script_data" ) {
+				if ( ch eq "<" ) {
+					state := "script_data_less_than_sign";
+					continue;
+				}
+				if ( ch eq chr(0) ) {
+					self._parse_error(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+					continue;
+				}
+				text _= ch;
+				continue;
+			}
+			if ( state eq "script_data_less_than_sign" ) {
+				if ( ch eq "/" ) {
+					tag_name := "";
+					state := "script_data_end_tag_open";
+					continue;
+				}
+				if ( ch eq "!" ) {
+					text _= "<!";
+					state := "script_data_escape_start";
+					continue;
+				}
+				text _= "<";
+				_stream.reconsume();
+				state := "script_data";
+				continue;
+			}
+			if ( state eq "script_data_end_tag_open" ) {
+				if ( _html_tok_is_alpha(ch) ) {
+					tag_name := _html_tok_ascii_lower_char(ch);
+					tag_text := ch;
+					state := "script_data_end_tag_name";
+					continue;
+				}
+				text _= "</";
+				_stream.reconsume();
+				state := "script_data";
+				continue;
+			}
+			if ( state eq "script_data_end_tag_name" ) {
+				if ( _html_tok_is_alpha(ch) or _html_tok_is_digit(ch) ) {
+					tag_name _= _html_tok_ascii_lower_char(ch);
+					tag_text _= ch;
+					continue;
+				}
+				let target := self._appropriate_end_tag_name();
+				if (
+					tag_name eq target and
+					( ch eq ">" or ch eq "/" or ch eq " " or
+						ch eq "\n" or ch eq "\t" or ch eq chr(12) )
+				) {
+					// Skip anything up to the closing ">" (attributes on
+					// an end tag are parse errors but the tag still ends
+					// there), emit, and hand control back so the tree
+					// builder can switch the tokenizer state.
+					let extra := "";
+					let closed := ch eq ">";
+					while ( not closed and not _stream.eof() ) {
+						let trailing := _stream.consume();
+						closed := trailing eq ">";
+						extra _= trailing unless closed;
+					}
+					if ( not closed ) {
+						// EOF inside the end tag: eof-in-tag, the tag
+						// characters are dropped.
+						self._emit_character(text) if text ne "";
+						return self;
+					}
+					self._emit_character(text) if text ne "";
+					text := "";
+					self._emit(new HTMLToken(
+						_type: "EndTag",
+						_tag_name: tag_name,
+						_attributes: [],
+					));
+					return self;
+				}
+				text _= "</" _ tag_text;
+				_stream.reconsume();
+				tag_name := "";
+				tag_text := "";
+				state := "script_data";
+				continue;
+			}
+			if ( state eq "script_data_escape_start" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+					state := "script_data_escape_start_dash";
+					continue;
+				}
+				_stream.reconsume();
+				state := "script_data";
+				continue;
+			}
+			if ( state eq "script_data_escape_start_dash" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+					state := "script_data_escaped_dash_dash";
+					continue;
+				}
+				_stream.reconsume();
+				state := "script_data";
+				continue;
+			}
+			if ( state eq "script_data_escaped" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+					state := "script_data_escaped_dash";
+					continue;
+				}
+				if ( ch eq "<" ) {
+					state := "script_data_escaped_less_than_sign";
+					continue;
+				}
+				if ( ch eq chr(0) ) {
+					self._parse_error(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+					state := "script_data_escaped";
+					continue;
+				}
+				text _= ch;
+				state := "script_data_escaped";
+				continue;
+			}
+			if ( state eq "script_data_escaped_dash" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+					state := "script_data_escaped_dash_dash";
+					continue;
+				}
+				if ( ch eq "<" ) {
+					state := "script_data_escaped_less_than_sign";
+					continue;
+				}
+				if ( ch eq chr(0) ) {
+					self._parse_error(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+					state := "script_data_escaped";
+					continue;
+				}
+				text _= ch;
+				state := "script_data_escaped";
+				continue;
+			}
+			if ( state eq "script_data_escaped_dash_dash" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+				}
+				else if ( ch eq "<" ) {
+					state := "script_data_escaped_less_than_sign";
+					continue;
+				}
+				else if ( ch eq ">" ) {
+					text _= ">";
+					state := "script_data";
+					continue;
+				}
+				else if ( ch eq chr(0) ) {
+					self._parse_error(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+					state := "script_data_escaped";
+					continue;
+				}
+				else {
+					text _= ch;
+					state := "script_data_escaped";
+				}
+				continue;
+			}
+			if ( state eq "script_data_escaped_less_than_sign" ) {
+				if ( ch eq "/" ) {
+					tag_name := "";
+					state := "script_data_escaped_end_tag_open";
+					continue;
+				}
+				if ( _html_tok_is_alpha(ch) ) {
+					temp_buffer := "";
+					tag_name := "";
+					text _= "<";
+					_stream.reconsume();
+					state := "script_data_double_escape_start";
+					continue;
+				}
+				text _= "<";
+				_stream.reconsume();
+				state := "script_data_escaped";
+				continue;
+			}
+			if ( state eq "script_data_escaped_end_tag_open" ) {
+				if ( _html_tok_is_alpha(ch) ) {
+					tag_name := _html_tok_ascii_lower_char(ch);
+					tag_text := ch;
+					state := "script_data_escaped_end_tag_name";
+					continue;
+				}
+				text _= "</";
+				_stream.reconsume();
+				state := "script_data_escaped";
+				continue;
+			}
+			if ( state eq "script_data_escaped_end_tag_name" ) {
+				if ( _html_tok_is_alpha(ch) or _html_tok_is_digit(ch) ) {
+					tag_name _= _html_tok_ascii_lower_char(ch);
+					tag_text _= ch;
+					continue;
+				}
+				let target := self._appropriate_end_tag_name();
+				if (
+					tag_name eq target and
+					( ch eq ">" or ch eq "/" or ch eq " " or
+						ch eq "\n" or ch eq "\t" or ch eq chr(12) )
+				) {
+					// Skip anything up to the closing ">" (attributes on
+					// an end tag are parse errors but the tag still ends
+					// there), emit, and hand control back so the tree
+					// builder can switch the tokenizer state.
+					let extra := "";
+					let closed := ch eq ">";
+					while ( not closed and not _stream.eof() ) {
+						let trailing := _stream.consume();
+						closed := trailing eq ">";
+						extra _= trailing unless closed;
+					}
+					if ( not closed ) {
+						// EOF inside the end tag: eof-in-tag, the tag
+						// characters are dropped.
+						self._emit_character(text) if text ne "";
+						return self;
+					}
+					self._emit_character(text) if text ne "";
+					text := "";
+					self._emit(new HTMLToken(
+						_type: "EndTag",
+						_tag_name: tag_name,
+						_attributes: [],
+					));
+					return self;
+				}
+				text _= "</" _ tag_text;
+				_stream.reconsume();
+				tag_name := "";
+				tag_text := "";
+				state := "script_data_escaped";
+				continue;
+			}
+			if ( state eq "script_data_double_escape_start" ) {
+				if (
+					ch eq "\n" or ch eq "\t" or ch eq chr(12) or
+					ch eq " " or ch eq "/" or ch eq ">"
+				) {
+					let target := temp_buffer;
+					text _= ch;
+					state := (
+						target eq "script"
+							? "script_data_double_escaped"
+							: "script_data_escaped"
+					);
+					temp_buffer := "";
+					continue;
+				}
+				if ( _html_tok_is_alpha(ch) ) {
+					temp_buffer _= _html_tok_ascii_lower_char(ch);
+					text _= ch;
+					continue;
+				}
+				_stream.reconsume();
+				state := "script_data_escaped";
+				temp_buffer := "";
+				continue;
+			}
+			if ( state eq "script_data_double_escaped" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+					state := "script_data_double_escaped_dash";
+					continue;
+				}
+				if ( ch eq "<" ) {
+					text _= "<";
+					state := "script_data_double_escaped_less_than_sign";
+					continue;
+				}
+				if ( ch eq chr(0) ) {
+					self._parse_error(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+					continue;
+				}
+				text _= ch;
+				state := "script_data_double_escaped";
+				continue;
+			}
+			if ( state eq "script_data_double_escaped_dash" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+					state := "script_data_double_escaped_dash_dash";
+					continue;
+				}
+				if ( ch eq "<" ) {
+					text _= "<";
+					state := "script_data_double_escaped_less_than_sign";
+					continue;
+				}
+				if ( ch eq chr(0) ) {
+					self._parse_error(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+					state := "script_data_double_escaped";
+					continue;
+				}
+				text _= ch;
+				state := "script_data_double_escaped";
+				continue;
+			}
+			if ( state eq "script_data_double_escaped_dash_dash" ) {
+				if ( ch eq "-" ) {
+					text _= "-";
+				}
+				else if ( ch eq "<" ) {
+					text _= "<";
+					state := "script_data_double_escaped_less_than_sign";
+					continue;
+				}
+				else if ( ch eq ">" ) {
+					text _= ">";
+					state := "script_data";
+					continue;
+				}
+				else if ( ch eq chr(0) ) {
+					self._parse_error(
+						"unexpected-null-character",
+						"Unexpected null character",
+					);
+					text _= chr(65533);
+					state := "script_data_double_escaped";
+					continue;
+				}
+				else {
+					text _= ch;
+					state := "script_data_double_escaped";
+				}
+				continue;
+			}
+			if ( state eq "script_data_double_escaped_less_than_sign" ) {
+				if ( ch eq "/" ) {
+					text _= "/";
+					temp_buffer := "";
+					state := "script_data_double_escape_end";
+					continue;
+				}
+				_stream.reconsume();
+				state := "script_data_double_escaped";
+				continue;
+			}
+			if ( state eq "script_data_double_escape_end" ) {
+				if (
+					ch eq "\n" or ch eq "\t" or ch eq chr(12) or
+					ch eq " " or ch eq "/" or ch eq ">"
+				) {
+					let target := temp_buffer;
+					text _= ch;
+					state := (
+						target eq "script"
+							? "script_data_escaped"
+							: "script_data_double_escaped"
+					);
+					temp_buffer := "";
+					continue;
+				}
+				if ( _html_tok_is_alpha(ch) ) {
+					temp_buffer _= _html_tok_ascii_lower_char(ch);
+					text _= ch;
+					continue;
+				}
+				_stream.reconsume();
+				state := "script_data_double_escaped";
+				temp_buffer := "";
+				continue;
+			}
+			state := "script_data";
+		}
+		if ( text ne "" ) {
+			self._emit_character(text);
 		}
 		return self;
 	}

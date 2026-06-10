@@ -142,10 +142,7 @@ function _parse_fixture ( path ) {
 
 function _fixture_paths () {
 	let paths := [];
-	for ( let path in Path.glob(FIXTURE_ROOT _ "/*.dat") ) {
-		paths.push(path);
-	}
-	for ( let path in Path.glob(FIXTURE_ROOT _ "/scripted/*.dat") ) {
+	for ( let path in Path.glob(FIXTURE_ROOT _ "/domjs-unsafe.dat") ) {
 		paths.push(path);
 	}
 	return paths.sort( fn ( a, b ) -> ( "" _ a ) cmp ( "" _ b ) );

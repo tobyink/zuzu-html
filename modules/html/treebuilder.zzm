@@ -2621,12 +2621,18 @@ class HTMLTreeBuilder {
 			if ( _html_tb_table_structural_element(name) or name eq "table" ) {
 				return self._mode_in_select_in_table(token);
 			}
-			self.parseError(
-				"ignored-start-tag-in-select",
-				"Ignored start tag in select",
-				token,
-			);
-			return false;
+			if ( [ "input", "keygen", "textarea" ].contains(name) ) {
+				self.parseError(
+					"ignored-start-tag-in-select",
+					"Ignored " _ name _ " start tag in select",
+					token,
+				);
+				return false;
+			}
+			// Anything else falls through to the in-body rules: since
+			// the select-parsing relaxation, selects accept arbitrary
+			// content (html5lib expects e.g. <select><svg> to nest).
+			return self._mode_in_body(token);
 		}
 		if ( token.type() eq "EndTag" ) {
 			let name := token.tagName();
@@ -3254,8 +3260,17 @@ class HTMLTreeBuilder {
 	}
 
 	method _copy_token_attributes ( element, HTMLToken token, String namespaceURI ) {
+		let foreign := namespaceURI eq SVG_NAMESPACE_URI
+			or namespaceURI eq MATHML_NAMESPACE_URI;
 		for ( let attr in token.attributes() ) {
 			let name := attr{name};
+			if ( not foreign ) {
+				// Foreign-attribute namespace adjustment only applies to
+				// SVG/MathML elements; on HTML elements "xlink:href" is
+				// just a funny attribute name.
+				element.setAttribute( name, attr{value} );
+				next;
+			}
 			if ( name ~ /^xlink:/ ) {
 				element.setAttributeNS(
 					XLINK_NAMESPACE_URI,

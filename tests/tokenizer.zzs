@@ -78,7 +78,9 @@ is(
 );
 is( positioned.errors()[0].line(), 2, "parse error records line" );
 is( positioned.errors()[0].column(), 1, "parse error records column" );
-is( chars("a" _ chr(0) _ "b"), "a" _ chr(65533) _ "b", "null is replaced" );
+// In the data state U+0000 is a parse error but is emitted as-is;
+// replacement (or dropping) happens at the tree-construction stage.
+is( chars("a" _ chr(0) _ "b"), "a" _ chr(0) _ "b", "null passes through data state" );
 
 let start := tok("<DiV A=\"1\" b='two' c=d disabled />");
 is( start.type(), "StartTag", "start tag token emitted" );

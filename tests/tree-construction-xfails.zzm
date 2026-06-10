@@ -161,38 +161,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail quirks01.dat#3#script-on	quirks-mode doctype recovery is only partially modelled; doctype-triggered stack heuristics for force-quirks and bogus doctype paths remain unimplemented in this parser subset
 // xfail quirks01.dat#4#script-off	quirks-mode doctype recovery is only partially modelled; doctype-triggered stack heuristics for force-quirks and bogus doctype paths remain unimplemented in this parser subset
 // xfail quirks01.dat#4#script-on	quirks-mode doctype recovery is only partially modelled; doctype-triggered stack heuristics for force-quirks and bogus doctype paths remain unimplemented in this parser subset
-// xfail ruby.dat#1#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#1#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#2#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#2#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#3#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#3#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#4#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#4#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#6#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#6#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#7#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#7#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#8#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#8#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#9#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#9#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#11#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#11#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#12#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#12#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#13#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#13#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#16#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#16#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#17#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#17#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#18#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#18#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#19#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#19#script-on	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#21#script-off	ruby autoclose and scope-rule transitions are implemented only partially
-// xfail ruby.dat#21#script-on	ruby autoclose and scope-rule transitions are implemented only partially
 // xfail scriptdata01.dat#7#script-off	tree-construction repair path is incomplete for this case (see fixture cluster reasons above)
 // xfail scriptdata01.dat#7#script-on	tree-construction repair path is incomplete for this case (see fixture cluster reasons above)
 // xfail scripted/adoption01.dat#1#script-on	scripted fixture expectations rely on live script execution side effects that are outside parser-only scope
@@ -211,8 +179,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tables01.dat#18#script-on	table-mode parser branch still lacks in-cell and row/col edge-case transitions
 // xfail template.dat#28#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#28#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#29#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#29#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#30#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#30#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#39#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
@@ -410,26 +376,8 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests18.dat#29#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests18.dat#30#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests18.dat#30#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests19.dat#2#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#2#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#3#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#3#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#9#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#9#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#11#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#11#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#12#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#12#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#14#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#14#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#15#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#15#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#16#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#16#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#17#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#17#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#18#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#18#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#31#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#31#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#32#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
@@ -674,16 +622,8 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail webkit01.dat#35#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail webkit01.dat#36#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail webkit01.dat#36#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail webkit02.dat#1#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#1#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#5#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#5#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#7#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#7#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#8#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#8#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#9#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#9#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#12#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#12#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#13#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
@@ -700,26 +640,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail webkit02.dat#19#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#23#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#23#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#26#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#26#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#27#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#27#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#28#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#28#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#29#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#29#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#30#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#30#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#31#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#31#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#32#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#32#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#33#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#33#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#34#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#34#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#35#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#35#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#36#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#36#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#38#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented

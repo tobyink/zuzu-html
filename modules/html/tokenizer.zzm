@@ -1536,7 +1536,8 @@ class HTMLTokenizer {
 		while ( not _stream.eof() ) {
 			let ch := _stream.peek();
 			last if _html_tok_is_space(ch) or ch eq ">";
-			last if ch eq "/" and _stream.peek(2) eq "/>";
+			// "/" is an ordinary character in an unquoted attribute
+			// value; <foo bar=qux/> has the value "qux/".
 			if ( ch eq "&" ) {
 				_stream.consume();
 				value _= self._consume_character_reference(true);

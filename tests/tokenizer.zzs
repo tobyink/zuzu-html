@@ -94,15 +94,18 @@ like( start.toDebugString(), /StartTag\(div/, "token debug string includes tag" 
 let end := tok("</SPAN class=x/>");
 is( end.type(), "EndTag", "end tag token emitted" );
 is( end.tagName(), "span", "end tag name lowercases" );
-is( end.getAttribute("class"), "x", "end tag attrs are exposed" );
+// A "/" inside an unquoted attribute value is an ordinary character.
+is( end.getAttribute("class"), "x/", "end tag attrs are exposed" );
 let end_parser := new HTMLTokenizer( _input: "</SPAN class=x/>" );
 end_parser.tokenize();
 ok(
 	error_codes(end_parser).contains("end-tag-with-attributes"),
 	"end tag attrs record parse error",
 );
+let solidus_parser := new HTMLTokenizer( _input: "</span/>" );
+solidus_parser.tokenize();
 ok(
-	error_codes(end_parser).contains("end-tag-with-trailing-solidus"),
+	error_codes(solidus_parser).contains("end-tag-with-trailing-solidus"),
 	"end tag trailing solidus records parse error",
 );
 

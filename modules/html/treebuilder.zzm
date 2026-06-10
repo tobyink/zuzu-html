@@ -1582,6 +1582,17 @@ class HTMLTreeBuilder {
 			);
 			return false;
 		}
+		if (
+			token.type() eq "EndTag" and
+			not [ "head", "body", "html", "br" ].contains(token.tagName())
+		) {
+			self.parseError(
+				"unexpected-end-tag",
+				"Unexpected " _ token.tagName() _ " end tag before head; ignored",
+				token,
+			);
+			return false;
+		}
 		self.insertHtmlElement("head");
 		self.switchTo("in head");
 		return true;
@@ -1658,7 +1669,7 @@ class HTMLTreeBuilder {
 			not [ "body", "html", "br" ].contains(token.tagName())
 		) {
 			self.parseError(
-				"unexpected-end-tag-in-head",
+				"unexpected-end-tag",
 				"Unexpected " _ token.tagName() _ " end tag in head; ignored",
 				token,
 			);
@@ -1992,6 +2003,31 @@ class HTMLTreeBuilder {
 			self._push_active_formatting_marker();
 			_template_insertion_modes.push("in template");
 			self.switchTo("in template");
+			return false;
+		}
+		if ( name eq "rb" or name eq "rtc" ) {
+			if ( self.hasElementInScope("ruby") ) {
+				self._generate_implied_end_tags();
+				self.parseError(
+					"unexpected-ruby-start-tag",
+					"Ruby annotation start tag with open elements",
+					token,
+				) unless self._current_node_is("ruby");
+			}
+			self.insertElementForToken(token);
+			return false;
+		}
+		if ( name eq "rt" or name eq "rp" ) {
+			if ( self.hasElementInScope("ruby") ) {
+				self._generate_implied_end_tags("rtc");
+				self.parseError(
+					"unexpected-ruby-start-tag",
+					"Ruby annotation start tag with open elements",
+					token,
+				) unless self._current_node_is("ruby")
+					or self._current_node_is("rtc");
+			}
+			self.insertElementForToken(token);
 			return false;
 		}
 		self._reconstruct_active_formatting_elements();
@@ -2486,6 +2522,17 @@ class HTMLTreeBuilder {
 				[ "table", "tbody", "tfoot", "thead", "tr" ].contains(token.tagName()) )
 		) {
 			if (
+				token.type() eq "EndTag" and
+				not self.hasElementInTableScope(token.tagName())
+			) {
+				self.parseError(
+					"ignored-end-tag-in-cell",
+					"Ignored " _ token.tagName() _ " end tag in cell",
+					token,
+				);
+				return false;
+			}
+			if (
 				self._fragment_context_is_table_cell()
 			) {
 				self.parseError(
@@ -2533,6 +2580,13 @@ class HTMLTreeBuilder {
 			let name := token.tagName();
 			if ( name eq "html" ) {
 				return self._mode_in_body(token);
+			}
+			if ( name eq "hr" ) {
+				self.popElement() if self._current_node_is("option");
+				self.popElement() if self._current_node_is("optgroup");
+				self.insertElementForToken(token);
+				self.popElement();
+				return false;
 			}
 			if ( name eq "option" ) {
 				self.popElement() if self._current_node_is("option");

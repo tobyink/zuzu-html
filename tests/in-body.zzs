@@ -29,7 +29,7 @@ is( div.firstChild().tagName(), "p", "block end leaves p inside div" );
 is( div.firstChild().textContent(), "x", "p inside div keeps text" );
 
 let stray_p_parser := new HTMLParser();
-let stray_p := stray_p_parser.parse("</p>x");
+let stray_p := stray_p_parser.parse("<body></p>x");
 is( stray_p.getElementsByTagName("p").length(), 1, "stray p end creates implied p" );
 is( body_of(stray_p).textContent(), "x", "stray p end recovers body text" );
 ok(

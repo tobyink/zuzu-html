@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project roughly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- Script-data tokenizer: matched end tags now hand control back to the
+  tree builder immediately, attributes on text-mode end tags are
+  consumed up to ">", original case is preserved when an end-tag
+  candidate is re-emitted as text, and EOF handling no longer
+  duplicates "<" or leaks tag characters.
+- Tokenizer: "/" inside an unquoted attribute value is treated as an
+  ordinary character instead of a self-closing flag.
+- Tree builder: stray end tags are ignored in "before head", "in
+  head", and "before html" per spec; basefont/bgsound are handled in
+  head; noframes/basefont/bgsound route from body to the in-head
+  rules; textarea/xmp/iframe/noembed/noscript-with-scripting switch to
+  RCDATA/RAWTEXT from "in body"; a stray </p> inserts the spec's
+  phantom p element; the newline after pre/listing/textarea is
+  skipped; hr is allowed inside select; ruby rb/rtc/rt/rp generate
+  implied end tags; section end tags in "in cell" are ignored when not
+  in table scope.
+- Tree-test serializer no longer escapes quotes (html5lib format is
+  raw).
+- html5lib tree-construction expected failures reduced from 1021 to
+  645.
+
 ## 0.0.1 - 2026-06-10
 
 *First release.*

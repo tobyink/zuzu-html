@@ -3108,7 +3108,7 @@ class HTMLTokenizer {
 			if ( state eq "script_data" ) {
 				if ( ch eq "<" ) {
 					state := "script_data_less_than_sign";
-					continue;
+					next;
 				}
 				if ( ch eq chr(0) ) {
 					self._parse_error(
@@ -3116,44 +3116,44 @@ class HTMLTokenizer {
 						"Unexpected null character",
 					);
 					text _= chr(65533);
-					continue;
+					next;
 				}
 				text _= ch;
-				continue;
+				next;
 			}
 			if ( state eq "script_data_less_than_sign" ) {
 				if ( ch eq "/" ) {
 					tag_name := "";
 					state := "script_data_end_tag_open";
-					continue;
+					next;
 				}
 				if ( ch eq "!" ) {
 					text _= "<!";
 					state := "script_data_escape_start";
-					continue;
+					next;
 				}
 				text _= "<";
 				_stream.reconsume();
 				state := "script_data";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_end_tag_open" ) {
 				if ( _html_tok_is_alpha(ch) ) {
 					tag_name := _html_tok_ascii_lower_char(ch);
 					tag_text := ch;
 					state := "script_data_end_tag_name";
-					continue;
+					next;
 				}
 				text _= "</";
 				_stream.reconsume();
 				state := "script_data";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_end_tag_name" ) {
 				if ( _html_tok_is_alpha(ch) or _html_tok_is_digit(ch) ) {
 					tag_name _= _html_tok_ascii_lower_char(ch);
 					tag_text _= ch;
-					continue;
+					next;
 				}
 				let target := self._appropriate_end_tag_name();
 				if (
@@ -3192,37 +3192,37 @@ class HTMLTokenizer {
 				tag_name := "";
 				tag_text := "";
 				state := "script_data";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escape_start" ) {
 				if ( ch eq "-" ) {
 					text _= "-";
 					state := "script_data_escape_start_dash";
-					continue;
+					next;
 				}
 				_stream.reconsume();
 				state := "script_data";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escape_start_dash" ) {
 				if ( ch eq "-" ) {
 					text _= "-";
 					state := "script_data_escaped_dash_dash";
-					continue;
+					next;
 				}
 				_stream.reconsume();
 				state := "script_data";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escaped" ) {
 				if ( ch eq "-" ) {
 					text _= "-";
 					state := "script_data_escaped_dash";
-					continue;
+					next;
 				}
 				if ( ch eq "<" ) {
 					state := "script_data_escaped_less_than_sign";
-					continue;
+					next;
 				}
 				if ( ch eq chr(0) ) {
 					self._parse_error(
@@ -3231,21 +3231,21 @@ class HTMLTokenizer {
 					);
 					text _= chr(65533);
 					state := "script_data_escaped";
-					continue;
+					next;
 				}
 				text _= ch;
 				state := "script_data_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escaped_dash" ) {
 				if ( ch eq "-" ) {
 					text _= "-";
 					state := "script_data_escaped_dash_dash";
-					continue;
+					next;
 				}
 				if ( ch eq "<" ) {
 					state := "script_data_escaped_less_than_sign";
-					continue;
+					next;
 				}
 				if ( ch eq chr(0) ) {
 					self._parse_error(
@@ -3254,11 +3254,11 @@ class HTMLTokenizer {
 					);
 					text _= chr(65533);
 					state := "script_data_escaped";
-					continue;
+					next;
 				}
 				text _= ch;
 				state := "script_data_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escaped_dash_dash" ) {
 				if ( ch eq "-" ) {
@@ -3266,12 +3266,12 @@ class HTMLTokenizer {
 				}
 				else if ( ch eq "<" ) {
 					state := "script_data_escaped_less_than_sign";
-					continue;
+					next;
 				}
 				else if ( ch eq ">" ) {
 					text _= ">";
 					state := "script_data";
-					continue;
+					next;
 				}
 				else if ( ch eq chr(0) ) {
 					self._parse_error(
@@ -3280,19 +3280,19 @@ class HTMLTokenizer {
 					);
 					text _= chr(65533);
 					state := "script_data_escaped";
-					continue;
+					next;
 				}
 				else {
 					text _= ch;
 					state := "script_data_escaped";
 				}
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escaped_less_than_sign" ) {
 				if ( ch eq "/" ) {
 					tag_name := "";
 					state := "script_data_escaped_end_tag_open";
-					continue;
+					next;
 				}
 				if ( _html_tok_is_alpha(ch) ) {
 					temp_buffer := "";
@@ -3300,30 +3300,30 @@ class HTMLTokenizer {
 					text _= "<";
 					_stream.reconsume();
 					state := "script_data_double_escape_start";
-					continue;
+					next;
 				}
 				text _= "<";
 				_stream.reconsume();
 				state := "script_data_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escaped_end_tag_open" ) {
 				if ( _html_tok_is_alpha(ch) ) {
 					tag_name := _html_tok_ascii_lower_char(ch);
 					tag_text := ch;
 					state := "script_data_escaped_end_tag_name";
-					continue;
+					next;
 				}
 				text _= "</";
 				_stream.reconsume();
 				state := "script_data_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_escaped_end_tag_name" ) {
 				if ( _html_tok_is_alpha(ch) or _html_tok_is_digit(ch) ) {
 					tag_name _= _html_tok_ascii_lower_char(ch);
 					tag_text _= ch;
-					continue;
+					next;
 				}
 				let target := self._appropriate_end_tag_name();
 				if (
@@ -3362,7 +3362,7 @@ class HTMLTokenizer {
 				tag_name := "";
 				tag_text := "";
 				state := "script_data_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_double_escape_start" ) {
 				if (
@@ -3377,28 +3377,28 @@ class HTMLTokenizer {
 							: "script_data_escaped"
 					);
 					temp_buffer := "";
-					continue;
+					next;
 				}
 				if ( _html_tok_is_alpha(ch) ) {
 					temp_buffer _= _html_tok_ascii_lower_char(ch);
 					text _= ch;
-					continue;
+					next;
 				}
 				_stream.reconsume();
 				state := "script_data_escaped";
 				temp_buffer := "";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_double_escaped" ) {
 				if ( ch eq "-" ) {
 					text _= "-";
 					state := "script_data_double_escaped_dash";
-					continue;
+					next;
 				}
 				if ( ch eq "<" ) {
 					text _= "<";
 					state := "script_data_double_escaped_less_than_sign";
-					continue;
+					next;
 				}
 				if ( ch eq chr(0) ) {
 					self._parse_error(
@@ -3406,22 +3406,22 @@ class HTMLTokenizer {
 						"Unexpected null character",
 					);
 					text _= chr(65533);
-					continue;
+					next;
 				}
 				text _= ch;
 				state := "script_data_double_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_double_escaped_dash" ) {
 				if ( ch eq "-" ) {
 					text _= "-";
 					state := "script_data_double_escaped_dash_dash";
-					continue;
+					next;
 				}
 				if ( ch eq "<" ) {
 					text _= "<";
 					state := "script_data_double_escaped_less_than_sign";
-					continue;
+					next;
 				}
 				if ( ch eq chr(0) ) {
 					self._parse_error(
@@ -3430,11 +3430,11 @@ class HTMLTokenizer {
 					);
 					text _= chr(65533);
 					state := "script_data_double_escaped";
-					continue;
+					next;
 				}
 				text _= ch;
 				state := "script_data_double_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_double_escaped_dash_dash" ) {
 				if ( ch eq "-" ) {
@@ -3443,12 +3443,12 @@ class HTMLTokenizer {
 				else if ( ch eq "<" ) {
 					text _= "<";
 					state := "script_data_double_escaped_less_than_sign";
-					continue;
+					next;
 				}
 				else if ( ch eq ">" ) {
 					text _= ">";
 					state := "script_data";
-					continue;
+					next;
 				}
 				else if ( ch eq chr(0) ) {
 					self._parse_error(
@@ -3457,24 +3457,24 @@ class HTMLTokenizer {
 					);
 					text _= chr(65533);
 					state := "script_data_double_escaped";
-					continue;
+					next;
 				}
 				else {
 					text _= ch;
 					state := "script_data_double_escaped";
 				}
-				continue;
+				next;
 			}
 			if ( state eq "script_data_double_escaped_less_than_sign" ) {
 				if ( ch eq "/" ) {
 					text _= "/";
 					temp_buffer := "";
 					state := "script_data_double_escape_end";
-					continue;
+					next;
 				}
 				_stream.reconsume();
 				state := "script_data_double_escaped";
-				continue;
+				next;
 			}
 			if ( state eq "script_data_double_escape_end" ) {
 				if (
@@ -3489,17 +3489,17 @@ class HTMLTokenizer {
 							: "script_data_double_escaped"
 					);
 					temp_buffer := "";
-					continue;
+					next;
 				}
 				if ( _html_tok_is_alpha(ch) ) {
 					temp_buffer _= _html_tok_ascii_lower_char(ch);
 					text _= ch;
-					continue;
+					next;
 				}
 				_stream.reconsume();
 				state := "script_data_double_escaped";
 				temp_buffer := "";
-				continue;
+				next;
 			}
 			state := "script_data";
 		}

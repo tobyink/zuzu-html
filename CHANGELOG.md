@@ -79,6 +79,13 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
   green.
 - html5lib tree-construction expected failures reduced from 1021 to
   188.
+- Portability: the script-data tokenizer used `continue` (a switch
+  fallthrough keyword) as loop control, which zuzu-rust and zuzu-js
+  tolerate but zuzu.pl does not; it now uses `next`. The
+  tree-construction harness no longer calls a method on a String
+  (`length` operator instead) and no longer re-wraps the manifest Path
+  in `new Path(...)`. The full tree-construction suite now passes on
+  zuzu-rust, zuzu.pl, and zuzu-js.
 
 ## 0.0.1 - 2026-06-10
 

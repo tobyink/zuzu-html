@@ -58,7 +58,7 @@ function _new_case ( Path p, Number case_number ) {
 	let file := p.to_String();
 	let fixture_root := FIXTURE_ROOT.to_String();
 	if ( starts_with( file, fixture_root ) ) {
-		file := substr( file, fixture_root.length() );
+		file := substr( file, length fixture_root );
 		file := starts_with( file, "/" ) ? substr( file, 1 ) : file;
 		file := starts_with( file, "\\" ) ? substr( file, 1 ) : file;
 	}
@@ -153,7 +153,7 @@ function _fixture_paths () {
 
 function _load_xfails () {
 	let out := {};
-	let path := new Path(XFAIL_MANIFEST);
+	let path := XFAIL_MANIFEST;
 	return out unless path.exists();
 
 	let marker := "// xfail ";

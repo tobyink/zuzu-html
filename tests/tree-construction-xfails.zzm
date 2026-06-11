@@ -19,12 +19,6 @@ and specific enough to decide when the entry can be removed.
 
 let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 
-// xfail adoption01.dat#6#script-off	treebuilder in this parser-only build omits Adoption Agency and foster-parenting repair; active-formatting reconstruction plus table-adoption/foster transitions are not implemented
-// xfail adoption01.dat#6#script-on	treebuilder in this parser-only build omits Adoption Agency and foster-parenting repair; active-formatting reconstruction plus table-adoption/foster transitions are not implemented
-// xfail adoption01.dat#11#script-off	treebuilder in this parser-only build omits Adoption Agency and foster-parenting repair; active-formatting reconstruction plus table-adoption/foster transitions are not implemented
-// xfail adoption01.dat#11#script-on	treebuilder in this parser-only build omits Adoption Agency and foster-parenting repair; active-formatting reconstruction plus table-adoption/foster transitions are not implemented
-// xfail adoption01.dat#18#script-off	treebuilder in this parser-only build omits Adoption Agency and foster-parenting repair; active-formatting reconstruction plus table-adoption/foster transitions are not implemented
-// xfail adoption01.dat#18#script-on	treebuilder in this parser-only build omits Adoption Agency and foster-parenting repair; active-formatting reconstruction plus table-adoption/foster transitions are not implemented
 // xfail blocks.dat#31#script-off	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
 // xfail blocks.dat#31#script-on	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
 // xfail blocks.dat#32#script-off	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
@@ -73,8 +67,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail template.dat#65#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#67#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#67#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#77#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#77#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#84#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#84#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#87#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
@@ -107,8 +99,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests1.dat#51#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#78#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#78#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#79#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#79#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#80#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#80#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#81#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
@@ -139,14 +129,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests19.dat#81#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#89#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#89#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#91#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#91#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#93#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#93#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#94#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#94#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#95#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#95#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests2.dat#7#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#7#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#8#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -157,34 +139,10 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests20.dat#42#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests20.dat#52#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests20.dat#52#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests22.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests22.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests23.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests23.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests25.dat#23#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests25.dat#23#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#1#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#1#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#2#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#2#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#3#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#3#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#4#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#4#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#6#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#6#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#7#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#7#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#8#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#8#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#9#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests26.dat#9#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#21#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#21#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#22#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#22#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests3.dat#24#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests3.dat#24#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests4.dat#6#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -223,8 +181,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests_innerHTML_1.dat#79#script-on	innerHTML fragment parsing lacks fragment-context state setup and foster-parenting hooks (open-elements context/template stack/adjusted insertion modes are deferred)
 // xfail tests_innerHTML_1.dat#81#script-off	innerHTML fragment parsing lacks fragment-context state setup and foster-parenting hooks (open-elements context/template stack/adjusted insertion modes are deferred)
 // xfail tests_innerHTML_1.dat#81#script-on	innerHTML fragment parsing lacks fragment-context state setup and foster-parenting hooks (open-elements context/template stack/adjusted insertion modes are deferred)
-// xfail tricky01.dat#6#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tricky01.dat#6#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tricky01.dat#8#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tricky01.dat#8#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tricky01.dat#9#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -239,22 +195,8 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail webkit01.dat#28#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail webkit01.dat#32#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail webkit01.dat#32#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail webkit01.dat#34#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail webkit01.dat#34#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail webkit02.dat#5#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#5#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#12#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#12#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#13#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#13#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#14#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#14#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#16#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#16#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#17#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#17#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#18#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#18#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#36#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#36#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#45#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented

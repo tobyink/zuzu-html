@@ -63,8 +63,22 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
   select stay intact.
 - The search element is a block/special element: it closes an open p
   and participates in scope checks.
+- Adoption Agency Algorithm spec fixes: the inner loop survives
+  non-formatting nodes being removed from the stack (the element above
+  is captured before removal); "insert last node" foster-parents when
+  the common ancestor is a table part (and targets template content);
+  the in-scope check tests the chosen formatting element itself rather
+  than any element with that name; the active formatting element
+  search stops at the last marker.
+- A nobr start tag with a nobr in scope is a parse error that runs the
+  adoption agency algorithm and reconstructs before inserting.
+- Reconstructed active formatting clones are inserted at the
+  appropriate place (foster-parenting in table contexts), and flushing
+  non-whitespace pending table characters reconstructs the active
+  formatting elements first. adoption01.dat and tests26.dat are fully
+  green.
 - html5lib tree-construction expected failures reduced from 1021 to
-  246.
+  188.
 
 ## 0.0.1 - 2026-06-10
 

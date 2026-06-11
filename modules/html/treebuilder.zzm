@@ -731,6 +731,42 @@ class HTMLTreeBuilder {
 		] );
 	}
 
+	method _has_node_in_scope ( node ) {
+		let boundaries := [
+			"applet",
+			"caption",
+			"html",
+			"table",
+			"td",
+			"th",
+			"marquee",
+			"object",
+			"template",
+		];
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			let element := _open_elements[i];
+			return true if element ≡ node;
+			if ( element.nodeKind() eq "element" ) {
+				let ns := element.namespaceURI();
+				if ( ns eq HTML_NAMESPACE_URI ) {
+					return false if boundaries.contains(element.tagName());
+				}
+				else if ( ns eq SVG_NAMESPACE_URI ) {
+					return false if [ "foreignObject", "desc", "title" ]
+						.contains(element.localName());
+				}
+				else if ( ns eq MATHML_NAMESPACE_URI ) {
+					return false if [
+						"mi", "mo", "mn", "ms", "mtext", "annotation-xml",
+					].contains(element.localName());
+				}
+			}
+			i--;
+		}
+		return false;
+	}
+
 	method hasElementInButtonScope ( String name ) {
 		return self._has_element_in_scope( name, [
 			"applet",
@@ -965,8 +1001,9 @@ class HTMLTreeBuilder {
 		let i := _active_formatting_elements.length() - 1;
 		while ( i >= 0 ) {
 			let entry := _active_formatting_elements[i];
-			return entry if entry ≢ null
-				and entry.nodeKind() eq "element"
+			// Only the entries after the last marker are candidates.
+			return null if entry ≡ null;
+			return entry if entry.nodeKind() eq "element"
 				and entry.tagName() eq wanted;
 			i--;
 		}
@@ -1062,7 +1099,7 @@ class HTMLTreeBuilder {
 		while ( i < _active_formatting_elements.length() ) {
 			let old := _active_formatting_elements[i];
 			let clone := self._clone_for_insertion(old);
-			self.currentNode().appendChild(clone);
+			self._insert_node_at_adjusted_location(clone);
 			self.pushElement(clone);
 			self._replace_active_formatting_element( old, clone );
 			i++;
@@ -1104,7 +1141,7 @@ class HTMLTreeBuilder {
 				self._remove_from_active_formatting_elements(formatting);
 				return self;
 			}
-			if ( not self.hasElementInScope(name) ) {
+			if ( not self._has_node_in_scope(formatting) ) {
 				self.parseError(
 					"adoption-agency-formatting-element-not-in-scope",
 					"Formatting element " _ name _ " is not in scope",
@@ -1147,15 +1184,19 @@ class HTMLTreeBuilder {
 			let bookmark := self._active_index(formatting);
 			let node := furthest_block;
 			let last_node := furthest_block;
+			// The element above is captured before any removal so the
+			// walk survives nodes being dropped from the stack.
+			let above_index := self._stack_index(furthest_block) - 1;
+			let above := above_index >= 0 ? _open_elements[above_index] : null;
 			let inner := 0;
 
 			while ( true ) {
 				inner++;
-				let node_index := self._stack_index(node);
-				node_index--;
-				last if node_index < 0;
-				node := _open_elements[node_index];
+				node := above;
+				last if node ≡ null;
 				last if node ≡ formatting;
+				above_index := self._stack_index(node) - 1;
+				above := above_index >= 0 ? _open_elements[above_index] : null;
 
 				if ( inner > 3 and self._active_index(node) >= 0 ) {
 					self._remove_from_active_formatting_elements(node);
@@ -1176,7 +1217,34 @@ class HTMLTreeBuilder {
 				last_node := node;
 			}
 
-			common_ancestor.appendChild(last_node);
+			// Last node goes into the appropriate place inside the common
+			// ancestor: foster-parented when that ancestor is a table part.
+			if (
+				common_ancestor.nodeKind() eq "element" and
+				common_ancestor.namespaceURI() eq HTML_NAMESPACE_URI and
+				[ "table", "tbody", "tfoot", "thead", "tr" ]
+					.contains(common_ancestor.tagName())
+			) {
+				let location := self._foster_insertion_location();
+				if ( location{parent} ≡ null ) {
+					common_ancestor.appendChild(last_node);
+				}
+				else if ( location{before} ≢ null ) {
+					location{parent}.insertBefore( last_node, location{before} );
+				}
+				else {
+					location{parent}.appendChild(last_node);
+				}
+			}
+			else if (
+				common_ancestor.nodeKind() eq "element" and
+				common_ancestor.tagName() eq "template"
+			) {
+				common_ancestor.content().appendChild(last_node);
+			}
+			else {
+				common_ancestor.appendChild(last_node);
+			}
 
 			let replacement := self._clone_for_insertion(formatting);
 			for ( let child in furthest_block.childNodes() ) {
@@ -2195,6 +2263,20 @@ class HTMLTreeBuilder {
 			self._push_active_formatting_element(self.insertElementForToken(token));
 			return false;
 		}
+		if ( name eq "nobr" ) {
+			self._reconstruct_active_formatting_elements();
+			if ( self.hasElementInScope("nobr") ) {
+				self.parseError(
+					"nested-nobr",
+					"Nested nobr start tag",
+					token,
+				);
+				self._adoption_agency_end_tag( "nobr", token );
+				self._reconstruct_active_formatting_elements();
+			}
+			self._push_active_formatting_element(self.insertElementForToken(token));
+			return false;
+		}
 		if ( _html_tb_formatting_element(name) ) {
 			self._reconstruct_active_formatting_elements();
 			self._push_active_formatting_element(self.insertElementForToken(token));
@@ -2570,7 +2652,10 @@ class HTMLTreeBuilder {
 			}
 		}
 		else {
+			// Non-whitespace runs replay through the in-body "anything
+			// else" rules: reconstruct formatting, then foster-insert.
 			_foster_parenting := true;
+			self._reconstruct_active_formatting_elements();
 			for ( let data in _pending_table_character_tokens ) {
 				self.insertCharacter(data);
 			}
@@ -3560,44 +3645,53 @@ class HTMLTreeBuilder {
 			and target.namespaceURI() eq HTML_NAMESPACE_URI;
 
 		if ( foster_applies ) {
-			let table_index := -1;
-			let template_index := -1;
-			let i := _open_elements.length() - 1;
-			while ( i >= 0 ) {
-				if (
-					_open_elements[i].nodeKind() eq "element" and
-					_open_elements[i].tagName() eq "template"
-				) {
-					template_index := i;
-					last;
-				}
-				if (
-					_open_elements[i].nodeKind() eq "element" and
-					_open_elements[i].tagName() eq "table"
-				) {
-					table_index := i;
-					last;
-				}
-				i--;
-			}
-			if ( template_index >= 0 and template_index > table_index ) {
-				let template := _open_elements[template_index];
-				parent := template.content();
-				before := null;
-			}
-			else if ( table_index >= 0 ) {
-				let table := _open_elements[table_index];
-				if ( table.parentNode() ≢ null ) {
-					parent := table.parentNode();
-					before := table;
-				}
-				else if ( table_index > 0 ) {
-					parent := _open_elements[table_index - 1];
-					before := null;
-				}
-			}
+			let location := self._foster_insertion_location();
+			parent := location{parent} ≢ null ? location{parent} : parent;
+			before := location{before};
 		}
 
+		return { parent: parent, before: before };
+	}
+
+	method _foster_insertion_location () {
+		let parent := null;
+		let before := null;
+		let table_index := -1;
+		let template_index := -1;
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			if (
+				_open_elements[i].nodeKind() eq "element" and
+				_open_elements[i].tagName() eq "template"
+			) {
+				template_index := i;
+				last;
+			}
+			if (
+				_open_elements[i].nodeKind() eq "element" and
+				_open_elements[i].tagName() eq "table"
+			) {
+				table_index := i;
+				last;
+			}
+			i--;
+		}
+		if ( template_index >= 0 and template_index > table_index ) {
+			let template := _open_elements[template_index];
+			parent := template.content();
+			before := null;
+		}
+		else if ( table_index >= 0 ) {
+			let table := _open_elements[table_index];
+			if ( table.parentNode() ≢ null ) {
+				parent := table.parentNode();
+				before := table;
+			}
+			else if ( table_index > 0 ) {
+				parent := _open_elements[table_index - 1];
+				before := null;
+			}
+		}
 		return { parent: parent, before: before };
 	}
 

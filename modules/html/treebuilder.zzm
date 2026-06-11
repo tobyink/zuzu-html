@@ -488,6 +488,7 @@ class HTMLTreeBuilder {
 	let String _original_insertion_mode := "initial";
 	let Boolean _frameset_ok := true;
 	let Boolean _ignore_next_lf := false;
+	let Boolean _head_repushed := false;
 	let Boolean _scripting := false;
 	let Boolean _finished := false;
 	let Array _errors := [];
@@ -1728,6 +1729,10 @@ class HTMLTreeBuilder {
 			);
 			self.popElement();
 			self.switchTo(_original_insertion_mode);
+			if ( _head_repushed ) {
+				self._remove_from_open_elements(_head_element);
+				_head_repushed := false;
+			}
 			_tokenizer.setState("data");
 			_tokenizer.setLastStartTagName(null);
 			return true;
@@ -1739,6 +1744,10 @@ class HTMLTreeBuilder {
 		) {
 			self.popElement();
 			self.switchTo(_original_insertion_mode);
+			if ( _head_repushed ) {
+				self._remove_from_open_elements(_head_element);
+				_head_repushed := false;
+			}
 			_tokenizer.setState("data");
 			_tokenizer.setLastStartTagName(null);
 			return false;
@@ -1753,9 +1762,8 @@ class HTMLTreeBuilder {
 
 	method _mode_after_head ( HTMLToken token ) {
 		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
-			self.insertHtmlElement("body");
-			self.switchTo("in body");
-			return true;
+			self.insertCharacter(token.data());
+			return false;
 		}
 		if ( token.type() eq "Comment" ) {
 			self.insertComment(token);
@@ -1774,6 +1782,48 @@ class HTMLTreeBuilder {
 		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
 			self.switchTo("in body");
 			return true;
+		}
+		if (
+			token.type() eq "StartTag" and
+			[ "base", "basefont", "bgsound", "link", "meta", "noframes",
+				"script", "style", "template", "title" ]
+				.contains(token.tagName())
+		) {
+			// Late metadata: temporarily push head back and process the
+			// token with the in-head rules.
+			self.parseError(
+				"unexpected-start-tag-after-head",
+				"Unexpected " _ token.tagName() _ " start tag after head",
+				token,
+			);
+			return false if _head_element ≡ null;
+			self.pushElement(_head_element);
+			let old_mode := _insertion_mode;
+			_insertion_mode := "in head";
+			let reprocess := self._mode_in_head(token);
+			if ( _insertion_mode eq "text" ) {
+				_original_insertion_mode := old_mode;
+				_head_repushed := true;
+			}
+			else {
+				_insertion_mode := old_mode if _insertion_mode eq "in head";
+				self._remove_from_open_elements(_head_element);
+			}
+			return reprocess;
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "template" ) {
+			return self._end_template(token);
+		}
+		if (
+			token.type() eq "EndTag" and
+			not [ "body", "html", "br" ].contains(token.tagName())
+		) {
+			self.parseError(
+				"unexpected-end-tag",
+				"Unexpected " _ token.tagName() _ " end tag after head; ignored",
+				token,
+			);
+			return false;
 		}
 		self.insertHtmlElement("body");
 		self.switchTo("in body");
@@ -2291,7 +2341,7 @@ class HTMLTreeBuilder {
 				self.switchTo("in template");
 				return false;
 			}
-			if ( _html_tb_headish_element(name) ) {
+			if ( name eq "style" or name eq "script" ) {
 				return self._process_using_in_head(token);
 			}
 		}

@@ -33,8 +33,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail blocks.dat#34#script-on	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
 // xfail blocks.dat#42#script-off	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
 // xfail blocks.dat#42#script-on	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
-// xfail doctype01.dat#31#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail doctype01.dat#31#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail foreign-fragment.dat#19#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail foreign-fragment.dat#19#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail foreign-fragment.dat#23#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
@@ -73,8 +71,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail search-element.dat#2#script-on	historical parser-mode transition fixtures reflect legacy behaviour currently not supported in this parser runtime
 // xfail svg.dat#2#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail svg.dat#2#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
-// xfail template.dat#43#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#43#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#64#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#64#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#65#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
@@ -149,28 +145,8 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests14.dat#6#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests19.dat#38#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#38#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#45#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#45#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#51#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#51#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#52#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#52#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#53#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#53#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#55#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#55#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#56#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#56#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#57#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#57#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#66#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#66#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#79#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#79#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#81#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#81#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#88#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#88#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#89#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#89#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#91#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
@@ -185,8 +161,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests2.dat#7#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#8#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#8#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests2.dat#55#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests2.dat#55#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#60#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#60#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests20.dat#42#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -197,10 +171,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests22.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests23.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests23.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#14#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#14#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#15#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#15#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests25.dat#23#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests25.dat#23#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests26.dat#1#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)

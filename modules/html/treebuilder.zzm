@@ -1557,9 +1557,35 @@ class HTMLTreeBuilder {
 		return false;
 	}
 
+	// Process a token to completion, honouring reprocess requests,
+	// and tell the caller's dispatch loop the original token is done.
+	method _process_token_fully ( HTMLToken token ) {
+		let again := true;
+		while ( again ) {
+			again := self._process_token(token);
+		}
+		return false;
+	}
+
+	// Character tokens arrive as runs; for modes that ignore (or
+	// insert) leading whitespace, split the run and return the
+	// remainder, or null when the run is entirely whitespace.
+	method _split_leading_ws ( HTMLToken token ) {
+		let data := token.data();
+		let i := 0;
+		while ( i < length(data) and _html_tb_is_ws(substr( data, i, 1 )) ) {
+			i++;
+		}
+		return null if i >= length(data);
+		return new HTMLToken( _type: "Character", _data: substr( data, i ) );
+	}
+
 	method _mode_initial ( HTMLToken token ) {
-		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
-			return false;
+		if ( token.type() eq "Character" ) {
+			let rest := self._split_leading_ws(token);
+			return false if rest ≡ null;
+			return self._process_token_fully(rest)
+				if rest.data() ne token.data();
 		}
 		if ( token.type() eq "Comment" ) {
 			self.insertComment( token, _document );
@@ -1576,8 +1602,11 @@ class HTMLTreeBuilder {
 	}
 
 	method _mode_before_html ( HTMLToken token ) {
-		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
-			return false;
+		if ( token.type() eq "Character" ) {
+			let rest := self._split_leading_ws(token);
+			return false if rest ≡ null;
+			return self._process_token_fully(rest)
+				if rest.data() ne token.data();
 		}
 		if ( token.type() eq "Comment" ) {
 			self.insertComment( token, _document );
@@ -1599,8 +1628,11 @@ class HTMLTreeBuilder {
 	}
 
 	method _mode_before_head ( HTMLToken token ) {
-		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
-			return false;
+		if ( token.type() eq "Character" ) {
+			let rest := self._split_leading_ws(token);
+			return false if rest ≡ null;
+			return self._process_token_fully(rest)
+				if rest.data() ne token.data();
 		}
 		if ( token.type() eq "Comment" ) {
 			self.insertComment(token);
@@ -1828,9 +1860,17 @@ class HTMLTreeBuilder {
 	}
 
 	method _mode_after_head ( HTMLToken token ) {
-		if ( token.type() eq "Character" and _html_tb_is_ws(token.data()) ) {
-			self.insertCharacter(token.data());
-			return false;
+		if ( token.type() eq "Character" ) {
+			let rest := self._split_leading_ws(token);
+			if ( rest ≡ null ) {
+				self.insertCharacter(token.data());
+				return false;
+			}
+			if ( rest.data() ne token.data() ) {
+				let ws_len := ( length token.data() ) - length rest.data();
+				self.insertCharacter(substr( token.data(), 0, ws_len ));
+				return self._process_token_fully(rest);
+			}
 		}
 		if ( token.type() eq "Comment" ) {
 			self.insertComment(token);
@@ -1838,6 +1878,7 @@ class HTMLTreeBuilder {
 		}
 		if ( token.type() eq "StartTag" and token.tagName() eq "body" ) {
 			self.insertElementForToken(token);
+			_frameset_ok := false;
 			self.switchTo("in body");
 			return false;
 		}
@@ -1847,8 +1888,7 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
-			self.switchTo("in body");
-			return true;
+			return self._process_using_in_body(token);
 		}
 		if (
 			token.type() eq "StartTag" and
@@ -2057,6 +2097,7 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		if ( name eq "li" ) {
+			_frameset_ok := false;
 			self._close_list_item( "li", token )
 				if self.hasElementInListItemScope("li");
 			self._close_p(token) if self.hasElementInButtonScope("p");
@@ -2064,6 +2105,7 @@ class HTMLTreeBuilder {
 			return false;
 		}
 		if ( name eq "dd" or name eq "dt" ) {
+			_frameset_ok := false;
 			self._close_list_item( "dd", token ) if self.hasElementInScope("dd");
 			self._close_list_item( "dt", token ) if self.hasElementInScope("dt");
 			self._close_p(token) if self.hasElementInButtonScope("p");
@@ -2105,7 +2147,7 @@ class HTMLTreeBuilder {
 			self._push_active_formatting_element(self.insertElementForToken(token));
 			return false;
 		}
-		if ( [ "br", "area", "embed", "img", "input", "wbr" ].contains(name) ) {
+		if ( [ "br", "area", "embed", "img", "input", "keygen", "wbr" ].contains(name) ) {
 			self._reconstruct_active_formatting_elements();
 			self._insert_from_token_then_pop(token);
 			_frameset_ok := false unless name eq "input"
@@ -2157,6 +2199,13 @@ class HTMLTreeBuilder {
 			self._push_active_formatting_marker();
 			_template_insertion_modes.push("in template");
 			self.switchTo("in template");
+			return false;
+		}
+		if ( [ "applet", "marquee", "object" ].contains(name) ) {
+			self._reconstruct_active_formatting_elements();
+			self.insertElementForToken(token);
+			self._push_active_formatting_marker();
+			_frameset_ok := false;
 			return false;
 		}
 		if (

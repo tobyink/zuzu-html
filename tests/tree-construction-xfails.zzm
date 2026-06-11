@@ -65,10 +65,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail scripted/ark.dat#1#script-on	scripted fixture expectations rely on live script execution side effects that are outside parser-only scope
 // xfail scripted/webkit01.dat#1#script-on	scripted fixture expectations rely on live script execution side effects that are outside parser-only scope
 // xfail scripted/webkit01.dat#2#script-on	scripted fixture expectations rely on live script execution side effects that are outside parser-only scope
-// xfail search-element.dat#1#script-off	historical parser-mode transition fixtures reflect legacy behaviour currently not supported in this parser runtime
-// xfail search-element.dat#1#script-on	historical parser-mode transition fixtures reflect legacy behaviour currently not supported in this parser runtime
-// xfail search-element.dat#2#script-off	historical parser-mode transition fixtures reflect legacy behaviour currently not supported in this parser runtime
-// xfail search-element.dat#2#script-on	historical parser-mode transition fixtures reflect legacy behaviour currently not supported in this parser runtime
 // xfail svg.dat#2#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail svg.dat#2#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail template.dat#64#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
@@ -123,12 +119,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests1.dat#102#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#111#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#111#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests11.dat#1#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests11.dat#1#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests11.dat#2#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests11.dat#2#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests11.dat#3#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests11.dat#3#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests11.dat#9#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests11.dat#9#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests11.dat#10#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -213,8 +203,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests6.dat#8#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests6.dat#45#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests6.dat#45#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests7.dat#17#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests7.dat#17#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests7.dat#28#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests7.dat#28#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests7.dat#31#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -267,14 +255,8 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail webkit02.dat#17#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#18#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#18#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#23#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#23#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#36#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#36#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#38#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#38#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#44#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
-// xfail webkit02.dat#44#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#45#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#45#script-on	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented
 // xfail webkit02.dat#46#script-off	tokenizer boundary/state-transition matrix is intentionally partial; html5lib-only states for script/comment/doctype boundaries, malformed EOF recovery, and boundary error handling are not yet implemented

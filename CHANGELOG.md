@@ -52,8 +52,19 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
   inside colgroup are processed in head.
 - Stray caption/col/colgroup/frame/head/tbody/td/tfoot/th/thead/tr
   start tags in body are ignored per spec.
+- Full spec "adjust SVG attributes" table (62 camelCase attribute
+  names); adjusting foreign attributes only matches the spec's exact
+  xlink:*, xml:lang/xml:space, and xmlns:xlink names instead of any
+  prefixed attribute.
+- "In select": input/keygen/textarea start tags close the select per
+  spec (ignored in the fragment case when no select is in select
+  scope), and end tags use the in-body rules only when their element
+  is open inside the select, so formatting elements outside the
+  select stay intact.
+- The search element is a block/special element: it closes an open p
+  and participates in scope checks.
 - html5lib tree-construction expected failures reduced from 1021 to
-  361.
+  246.
 
 ## 0.0.1 - 2026-06-10
 

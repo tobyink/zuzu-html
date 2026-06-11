@@ -161,6 +161,7 @@ function _html_tb_block_element ( String name ) {
 		"nav",
 		"ol",
 		"p",
+		"search",
 		"section",
 		"summary",
 		"ul",
@@ -274,14 +275,66 @@ function _html_tb_svg_tag_name ( String name ) {
 }
 
 function _html_tb_svg_attr_name ( String name ) {
+	// Generated from the spec's "adjust SVG attributes" table.
 	let map := {
 		attributename: "attributeName",
+		attributetype: "attributeType",
 		basefrequency: "baseFrequency",
+		baseprofile: "baseProfile",
+		calcmode: "calcMode",
+		clippathunits: "clipPathUnits",
+		diffuseconstant: "diffuseConstant",
+		edgemode: "edgeMode",
+		filterunits: "filterUnits",
+		glyphref: "glyphRef",
+		gradienttransform: "gradientTransform",
 		gradientunits: "gradientUnits",
+		kernelmatrix: "kernelMatrix",
+		kernelunitlength: "kernelUnitLength",
+		keypoints: "keyPoints",
+		keysplines: "keySplines",
+		keytimes: "keyTimes",
+		lengthadjust: "lengthAdjust",
+		limitingconeangle: "limitingConeAngle",
+		markerheight: "markerHeight",
+		markerunits: "markerUnits",
+		markerwidth: "markerWidth",
+		maskcontentunits: "maskContentUnits",
+		maskunits: "maskUnits",
+		numoctaves: "numOctaves",
+		pathlength: "pathLength",
+		patterncontentunits: "patternContentUnits",
+		patterntransform: "patternTransform",
+		patternunits: "patternUnits",
+		pointsatx: "pointsAtX",
+		pointsaty: "pointsAtY",
+		pointsatz: "pointsAtZ",
+		preservealpha: "preserveAlpha",
 		preserveaspectratio: "preserveAspectRatio",
+		primitiveunits: "primitiveUnits",
+		refx: "refX",
+		refy: "refY",
+		repeatcount: "repeatCount",
+		repeatdur: "repeatDur",
+		requiredextensions: "requiredExtensions",
+		requiredfeatures: "requiredFeatures",
+		specularconstant: "specularConstant",
+		specularexponent: "specularExponent",
+		spreadmethod: "spreadMethod",
+		startoffset: "startOffset",
+		stddeviation: "stdDeviation",
+		stitchtiles: "stitchTiles",
+		surfacescale: "surfaceScale",
+		systemlanguage: "systemLanguage",
+		tablevalues: "tableValues",
+		targetx: "targetX",
+		targety: "targetY",
+		textlength: "textLength",
 		viewbox: "viewBox",
+		viewtarget: "viewTarget",
 		xchannelselector: "xChannelSelector",
 		ychannelselector: "yChannelSelector",
+		zoomandpan: "zoomAndPan",
 	};
 	return map.exists(lc(name)) ? map{(lc(name))} : name;
 }
@@ -2878,11 +2931,15 @@ class HTMLTreeBuilder {
 			}
 			if ( [ "input", "keygen", "textarea" ].contains(name) ) {
 				self.parseError(
-					"ignored-start-tag-in-select",
-					"Ignored " _ name _ " start tag in select",
+					"unexpected-input-in-select",
+					"Unexpected " _ name _ " start tag in select",
 					token,
 				);
-				return false;
+				// Fragment case: no select in select scope, ignore.
+				return false unless self._has_select_in_select_scope();
+				self._pop_until_name("select");
+				self._reset_insertion_mode_appropriately();
+				return true;
 			}
 			// Anything else falls through to the in-body rules: since
 			// the select-parsing relaxation, selects accept arbitrary
@@ -2906,9 +2963,37 @@ class HTMLTreeBuilder {
 			if ( _html_tb_table_structural_element(name) or name eq "table" ) {
 				return self._mode_in_select_in_table(token);
 			}
+			// End tags for elements open inside the select use the
+			// in-body rules; anything else is ignored so formatting
+			// elements outside the select stay intact.
+			let i := _open_elements.length() - 1;
+			while ( i >= 0 ) {
+				let node := _open_elements[i];
+				if ( node.nodeKind() eq "element" ) {
+					last if node.tagName() eq "select";
+					return self._mode_in_body(token)
+						if node.namespaceURI() eq HTML_NAMESPACE_URI
+						and node.tagName() eq name;
+				}
+				i--;
+			}
 		}
 		if ( token.type() eq "EOF" ) {
 			return self._mode_in_body(token);
+		}
+		return false;
+	}
+
+	method _has_select_in_select_scope () {
+		let i := _open_elements.length() - 1;
+		while ( i >= 0 ) {
+			let element := _open_elements[i];
+			if ( element.nodeKind() eq "element" ) {
+				return true if element.tagName() eq "select";
+				return false unless [ "optgroup", "option" ]
+					.contains(element.tagName());
+			}
+			i--;
 		}
 		return false;
 	}
@@ -3564,27 +3649,31 @@ class HTMLTreeBuilder {
 				element.setAttribute( name, attr{value} );
 				next;
 			}
-			if ( name ~ /^xlink:/ ) {
+			if (
+				[ "xlink:actuate", "xlink:arcrole", "xlink:href",
+					"xlink:role", "xlink:show", "xlink:title",
+					"xlink:type" ].contains(name)
+			) {
 				element.setAttributeNS(
 					XLINK_NAMESPACE_URI,
-					"xlink:" _ substr( name, 6 ),
+					name,
 					attr{value},
 				);
 			}
-			else if ( name ~ /^xml:/ ) {
+			else if ( name eq "xml:lang" or name eq "xml:space" ) {
 				element.setAttributeNS(
 					XML_NAMESPACE_URI,
-					"xml:" _ substr( name, 4 ),
+					name,
 					attr{value},
 				);
 			}
 			else if ( name eq "xmlns" ) {
 				element.setAttributeNS( XMLNS_NAMESPACE_URI, "xmlns", attr{value} );
 			}
-			else if ( name ~ /^xmlns:/ ) {
+			else if ( name eq "xmlns:xlink" ) {
 				element.setAttributeNS(
 					XMLNS_NAMESPACE_URI,
-					"xmlns:" _ substr( name, 6 ),
+					name,
 					attr{value},
 				);
 			}

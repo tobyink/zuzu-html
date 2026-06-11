@@ -2042,6 +2042,17 @@ class HTMLTreeBuilder {
 			self.switchTo("in template");
 			return false;
 		}
+		if (
+			[ "caption", "col", "colgroup", "frame", "head", "tbody",
+				"td", "tfoot", "th", "thead", "tr" ].contains(name)
+		) {
+			self.parseError(
+				"unexpected-start-tag-ignored",
+				"Unexpected " _ name _ " start tag in body; ignored",
+				token,
+			);
+			return false;
+		}
 		if ( name eq "rb" or name eq "rtc" ) {
 			if ( self.hasElementInScope("ruby") ) {
 				self._generate_implied_end_tags();
@@ -2420,6 +2431,9 @@ class HTMLTreeBuilder {
 			self._insert_from_token_then_pop(token);
 			return false;
 		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "template" ) {
+			return self._process_using_in_head(token);
+		}
 		if ( token.type() eq "EndTag" and token.tagName() eq "colgroup" ) {
 			return false unless self._current_node_is("colgroup");
 			self.popElement();
@@ -2771,6 +2785,18 @@ class HTMLTreeBuilder {
 		if ( token.type() eq "EndTag" and token.tagName() eq "template" ) {
 			return self._end_template(token);
 		}
+		if ( token.type() eq "Character" or token.type() eq "Comment"
+			or token.type() eq "DOCTYPE" ) {
+			return self._process_using_in_body(token);
+		}
+		if ( token.type() eq "EndTag" ) {
+			self.parseError(
+				"unexpected-end-tag-in-template",
+				"Unexpected " _ token.tagName() _ " end tag in template; ignored",
+				token,
+			);
+			return false;
+		}
 		if ( token.type() eq "EOF" ) {
 			if ( not self.hasElementInScope("template") ) {
 				_finished := true;
@@ -2799,16 +2825,19 @@ class HTMLTreeBuilder {
 				self.switchTo("in table");
 				return false;
 			}
-			if ( name eq "col" or name eq "colgroup" ) {
+			if ( name eq "col" ) {
 				_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
 				_template_insertion_modes.push("in column group");
 				self.switchTo("in column group");
 				return true;
 			}
-			if ( _html_tb_table_section_element(name) ) {
+			if (
+				name eq "caption" or name eq "colgroup" or
+				_html_tb_table_section_element(name)
+			) {
 				_template_insertion_modes.pop() if _template_insertion_modes.length() > 0;
-				_template_insertion_modes.push("in table body");
-				self.switchTo("in table body");
+				_template_insertion_modes.push("in table");
+				self.switchTo("in table");
 				return true;
 			}
 			if ( name eq "tr" ) {

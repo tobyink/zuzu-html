@@ -45,8 +45,15 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
   non-space characters after leading whitespace in a colgroup pop the
   colgroup; td/th and section start tags in "in cell" respect table
   scope (fixing an infinite reprocess loop).
+- "In template" follows the spec dispatch: caption/colgroup and table
+  sections re-enter "in table", col enters "in column group", stray
+  end tags are ignored, and characters/comments use the in-body rules
+  without losing the template insertion mode; template start tags
+  inside colgroup are processed in head.
+- Stray caption/col/colgroup/frame/head/tbody/td/tfoot/th/thead/tr
+  start tags in body are ignored per spec.
 - html5lib tree-construction expected failures reduced from 1021 to
-  423.
+  361.
 
 ## 0.0.1 - 2026-06-10
 

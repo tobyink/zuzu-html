@@ -59,8 +59,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail foreign-fragment.dat#45#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail foreign-fragment.dat#46#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail foreign-fragment.dat#46#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
-// xfail foreign-fragment.dat#53#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
-// xfail foreign-fragment.dat#53#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail html5test-com.dat#12#script-off	html5lib benchmark expectations depend on browser runtime behaviour (execution, rendering, timing, and side effects) not provided by this parser-only implementation
 // xfail html5test-com.dat#12#script-on	html5lib benchmark expectations depend on browser runtime behaviour (execution, rendering, timing, and side effects) not provided by this parser-only implementation
 // xfail math.dat#2#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
@@ -95,52 +93,24 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail search-element.dat#2#script-on	historical parser-mode transition fixtures reflect legacy behaviour currently not supported in this parser runtime
 // xfail svg.dat#2#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail svg.dat#2#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
-// xfail template.dat#28#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#28#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#30#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#30#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#39#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#39#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#41#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#41#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#43#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#43#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#55#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#55#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#56#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#56#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#57#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#57#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#63#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#63#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#64#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#64#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#65#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#65#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#67#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#67#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#69#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#69#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#77#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#77#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#78#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#78#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#84#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#84#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#85#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#85#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#87#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#87#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#88#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#88#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#89#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#89#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#91#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#91#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#92#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#92#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#93#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail template.dat#93#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#96#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#96#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#97#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
@@ -187,10 +157,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests1.dat#90#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#102#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#102#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#108#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#108#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#109#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#109#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#111#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#111#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests11.dat#1#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -213,26 +179,10 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests14.dat#3#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests14.dat#6#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests14.dat#6#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests15.dat#3#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests15.dat#3#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests15.dat#7#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests15.dat#7#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests16.dat#89#script-off	tree-construction repair path is incomplete for this case (see fixture cluster reasons above)
 // xfail tests16.dat#186#script-off	tree-construction repair path is incomplete for this case (see fixture cluster reasons above)
-// xfail tests17.dat#6#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#6#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#7#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#7#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#8#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#8#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#9#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#9#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#10#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#10#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#11#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#11#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#12#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests17.dat#12#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests18.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests19.dat#3#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#3#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
@@ -254,8 +204,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests19.dat#57#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#66#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#66#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#76#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests19.dat#76#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#79#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#79#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#81#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
@@ -272,8 +220,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests19.dat#94#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#95#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#95#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests2.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests2.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#7#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#7#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests2.dat#8#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -290,10 +236,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests22.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests23.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests23.dat#5#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#7#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#7#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#10#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests25.dat#10#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests25.dat#14#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests25.dat#14#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests25.dat#15#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
@@ -324,10 +266,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests3.dat#2#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests3.dat#3#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests3.dat#3#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#13#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#13#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#14#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests3.dat#14#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests3.dat#21#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests3.dat#21#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests3.dat#22#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)

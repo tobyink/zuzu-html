@@ -3546,7 +3546,8 @@ class HTMLTokenizer {
 			return self._parse_bogus_comment();
 		}
 		if ( self._starts_with("?") ) {
-			_stream.consume();
+			// The "?" is reconsumed in the bogus comment state, so it
+			// becomes part of the comment data.
 			self._parse_error(
 				"unexpected-question-mark-instead-of-tag-name",
 				"Unexpected question mark instead of tag name",
@@ -3761,6 +3762,24 @@ class HTMLTokenizer {
 
 	method _parse_comment () {
 		let data := "";
+		// Comment start state: ">" or "->" closes an (empty) comment
+		// abruptly.
+		if ( self._starts_with(">") ) {
+			self._parse_error(
+				"abrupt-closing-of-empty-comment",
+				"Abrupt comment close",
+			);
+			_stream.consume();
+			return self._emit(new HTMLToken( _type: "Comment", _data: "" ));
+		}
+		if ( self._starts_with("->") ) {
+			self._parse_error(
+				"abrupt-closing-of-empty-comment",
+				"Abrupt comment close",
+			);
+			self._consume_string("->");
+			return self._emit(new HTMLToken( _type: "Comment", _data: "" ));
+		}
 		while ( not _stream.eof() ) {
 			if ( self._starts_with("-->") ) {
 				self._consume_string("-->");

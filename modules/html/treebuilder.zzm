@@ -1425,6 +1425,7 @@ class HTMLTreeBuilder {
 			case "before html": return self._mode_before_html(token);
 			case "before head": return self._mode_before_head(token);
 			case "in head": return self._mode_in_head(token);
+			case "in head noscript": return self._mode_in_head_noscript(token);
 			case "text": return self._mode_text(token);
 			case "after head": return self._mode_after_head(token);
 			case "in body": return self._mode_in_body(token);
@@ -1663,6 +1664,9 @@ class HTMLTreeBuilder {
 			if ( _scripting ) {
 				self._enter_text_mode( "rawtext", token.tagName() );
 			}
+			else {
+				self.switchTo("in head noscript");
+			}
 			return false;
 		}
 		if ( token.type() eq "EndTag" and token.tagName() eq "noscript" ) {
@@ -1713,6 +1717,69 @@ class HTMLTreeBuilder {
 		}
 		self.popElement();
 		self.switchTo("after head");
+		return true;
+	}
+
+	method _mode_in_head_noscript ( HTMLToken token ) {
+		if ( token.type() eq "DOCTYPE" ) {
+			self.parseError(
+				"unexpected-doctype-in-noscript",
+				"Unexpected doctype in noscript",
+				token,
+			);
+			return false;
+		}
+		if ( token.type() eq "StartTag" and token.tagName() eq "html" ) {
+			return self._process_using_in_body(token);
+		}
+		if ( token.type() eq "EndTag" and token.tagName() eq "noscript" ) {
+			self.popElement();
+			self.switchTo("in head");
+			return false;
+		}
+		if (
+			( token.type() eq "Character" and _html_tb_is_ws(token.data()) )
+			or token.type() eq "Comment"
+			or ( token.type() eq "StartTag" and
+				[ "basefont", "bgsound", "link", "meta", "noframes", "style" ]
+					.contains(token.tagName()) )
+		) {
+			let old_mode := _insertion_mode;
+			_insertion_mode := "in head";
+			let reprocess := self._mode_in_head(token);
+			_original_insertion_mode := old_mode if _insertion_mode eq "text";
+			_insertion_mode := old_mode if _insertion_mode eq "in head";
+			return reprocess;
+		}
+		if (
+			token.type() eq "StartTag" and
+			( token.tagName() eq "head" or token.tagName() eq "noscript" )
+		) {
+			self.parseError(
+				"unexpected-start-tag-in-noscript",
+				"Unexpected " _ token.tagName() _ " start tag in noscript",
+				token,
+			);
+			return false;
+		}
+		if (
+			token.type() eq "EndTag" and token.tagName() ne "br"
+		) {
+			self.parseError(
+				"unexpected-end-tag-in-noscript",
+				"Unexpected " _ token.tagName() _ " end tag in noscript",
+				token,
+			);
+			return false;
+		}
+		// Anything else: parse error, pop the noscript, reprocess in head.
+		self.parseError(
+			"unexpected-token-in-noscript",
+			"Unexpected token in noscript",
+			token,
+		);
+		self.popElement();
+		self.switchTo("in head");
 		return true;
 	}
 

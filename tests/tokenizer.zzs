@@ -135,7 +135,7 @@ ok(
 );
 let bogus_pi := toks("<?x>")[0];
 is( bogus_pi.type(), "Comment", "processing instruction-like markup is bogus comment" );
-is( bogus_pi.data(), "x", "bogus comment data parsed" );
+is( bogus_pi.data(), "?x", "bogus comment data keeps the question mark" );
 let invalid_tag := new HTMLTokenizer( _input: "<1" );
 invalid_tag.tokenize();
 ok(

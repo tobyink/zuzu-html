@@ -33,16 +33,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail blocks.dat#34#script-on	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
 // xfail blocks.dat#42#script-off	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
 // xfail blocks.dat#42#script-on	in-body and after-body recovery is intentionally simplified to fallback handling in _mode_after_body/_mode_after_after_body; it omits the full insertion-mode remap matrix and root/head/body edge-case stack behaviour
-// xfail comments01.dat#10#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#10#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#11#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#11#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#12#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#12#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#13#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#13#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#14#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail comments01.dat#14#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail doctype01.dat#31#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail doctype01.dat#31#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail foreign-fragment.dat#19#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
@@ -59,20 +49,10 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail foreign-fragment.dat#45#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail foreign-fragment.dat#46#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail foreign-fragment.dat#46#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
-// xfail html5test-com.dat#12#script-off	html5lib benchmark expectations depend on browser runtime behaviour (execution, rendering, timing, and side effects) not provided by this parser-only implementation
-// xfail html5test-com.dat#12#script-on	html5lib benchmark expectations depend on browser runtime behaviour (execution, rendering, timing, and side effects) not provided by this parser-only implementation
 // xfail math.dat#2#script-off	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail math.dat#2#script-on	foreign namespace handling is partial: treebuilder lacks namespace switch-stack tracking and SVG/MathML case-adjustment helpers, so local-name remapping and foreign-tree insertion rules are incomplete
 // xfail namespace-sensitivity.dat#1#script-off	namespace stack case-normalisation for SVG/MathML lookups is incomplete (adjusted namespace matching is deferred)
 // xfail namespace-sensitivity.dat#1#script-on	namespace stack case-normalisation for SVG/MathML lookups is incomplete (adjusted namespace matching is deferred)
-// xfail noscript01.dat#1#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
-// xfail noscript01.dat#2#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
-// xfail noscript01.dat#12#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
-// xfail noscript01.dat#13#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
-// xfail noscript01.dat#14#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
-// xfail noscript01.dat#16#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
-// xfail noscript01.dat#17#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
-// xfail noscript01.dat#18#script-off	script-off noscript handling is intentionally omitted in this parser-only mode; no reparse, execution, or DOM mutation hooks for noscript are modelled
 // xfail pending-spec-changes-plain-text-unsafe.dat#1#script-off	fixture tracks unsettled parser behaviour; kept as xfail until upstream spec/implementation alignment and regression expectations converge
 // xfail pending-spec-changes-plain-text-unsafe.dat#1#script-on	fixture tracks unsettled parser behaviour; kept as xfail until upstream spec/implementation alignment and regression expectations converge
 // xfail quirks01.dat#2#script-off	quirks-mode doctype recovery is only partially modelled; doctype-triggered stack heuristics for force-quirks and bogus doctype paths remain unimplemented in this parser subset
@@ -127,20 +107,10 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail template.dat#106#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#108#script-off	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
 // xfail template.dat#108#script-on	template mode stack handoff is incomplete for template.content, select, and nested-template transitions
-// xfail tests1.dat#28#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#28#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#31#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#31#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#35#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#35#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#40#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#40#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#41#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#41#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#44#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#44#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#47#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
-// xfail tests1.dat#47#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#51#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#51#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests1.dat#78#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
@@ -177,9 +147,6 @@ let HTML_TREE_CONSTRUCTION_XFAIL_MANIFEST := true;
 // xfail tests14.dat#3#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests14.dat#6#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests14.dat#6#script-on	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
-// xfail tests16.dat#89#script-off	tree-construction repair path is incomplete for this case (see fixture cluster reasons above)
-// xfail tests16.dat#186#script-off	tree-construction repair path is incomplete for this case (see fixture cluster reasons above)
-// xfail tests18.dat#5#script-off	tree-construction foster- and adoption-algorithm repair path is incomplete (no spec Adoption Agency + foster parenting handling for end-tag repair and table contexts)
 // xfail tests19.dat#38#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#38#script-on	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented
 // xfail tests19.dat#45#script-off	root/head/body and after-body recovery logic is intentionally reduced; full insertion-mode remap matrix and node relocation rules are not implemented

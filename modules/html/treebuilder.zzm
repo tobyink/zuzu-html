@@ -709,7 +709,10 @@ class HTMLTreeBuilder {
 	}
 
 	method hasElementInTableScope ( String name ) {
-		return self._has_element_in_scope( name, [ "html", "table", "template" ] );
+		// Table scope has no foreign-content boundaries.
+		return self._has_element_in_scope(
+			name, [ "html", "table", "template" ], false,
+		);
 	}
 
 	method _has_element_in_table_scope ( String name ) {
@@ -724,14 +727,32 @@ class HTMLTreeBuilder {
 		return false;
 	}
 
-	method _has_element_in_scope ( String name, Array boundaries ) {
+	method _has_element_in_scope ( String name, Array boundaries,
+		Boolean foreign_barriers := true ) {
 		let wanted := lc(name);
 		let i := _open_elements.length() - 1;
 		while ( i >= 0 ) {
 			let element := _open_elements[i];
 			if ( element.nodeKind() eq "element" ) {
-				return true if element.tagName() eq wanted;
-				return false if boundaries.contains(element.tagName());
+				let ns := element.namespaceURI();
+				if ( ns eq HTML_NAMESPACE_URI ) {
+					return true if element.tagName() eq wanted;
+					return false if boundaries.contains(element.tagName());
+				}
+				else if ( not foreign_barriers ) {
+					// Table scope ignores foreign elements entirely.
+				}
+				else if ( ns eq SVG_NAMESPACE_URI ) {
+					// SVG integration points are scope boundaries.
+					return false if [ "foreignObject", "desc", "title" ]
+						.contains(element.localName());
+				}
+				else if ( ns eq MATHML_NAMESPACE_URI ) {
+					// MathML text integration points likewise.
+					return false if [
+						"mi", "mo", "mn", "ms", "mtext", "annotation-xml",
+					].contains(element.localName());
+				}
 			}
 			i--;
 		}
@@ -1051,7 +1072,7 @@ class HTMLTreeBuilder {
 				let candidate := _open_elements[i];
 				if (
 					candidate.nodeKind() eq "element" and
-					_html_tb_special_element(candidate.tagName())
+					self._is_special_element(candidate)
 				) {
 					furthest_block := candidate;
 					last;
@@ -1500,11 +1521,25 @@ class HTMLTreeBuilder {
 				return true;
 			}
 			let i := _open_elements.length() - 1;
+			let top := self.currentNode();
+			if (
+				top.nodeKind() eq "element" and
+				lc(top.localName()) ne name
+			) {
+				self.parseError(
+					"unexpected-foreign-end-tag",
+					"End tag does not match current foreign element",
+					token,
+				);
+			}
 			while ( i >= 0 ) {
 				let node := _open_elements[i];
 				if ( node.nodeKind() eq "element" ) {
 					if ( node.namespaceURI() eq HTML_NAMESPACE_URI ) {
-						last;
+						// No matching foreign element: the end tag is
+						// processed with the HTML rules for the current
+						// insertion mode.
+						return self._process_html_token(token);
 					}
 					if ( lc(node.localName()) eq name ) {
 						while ( _open_elements.length() > i ) {
@@ -1515,11 +1550,6 @@ class HTMLTreeBuilder {
 				}
 				i--;
 			}
-			self.parseError(
-				"unexpected-foreign-end-tag",
-				"Foreign end tag ignored",
-				token,
-			);
 			return false;
 		}
 		return false;
@@ -2142,10 +2172,27 @@ class HTMLTreeBuilder {
 
 	method _mode_in_table ( HTMLToken token ) {
 		if ( token.type() eq "Character" ) {
-			_pending_table_character_tokens := [ token.data() ];
-			_original_insertion_mode := _insertion_mode;
-			self.switchTo("in table text");
-			return false;
+			let current := self.currentNode();
+			if (
+				current.nodeKind() eq "element" and
+				current.namespaceURI() eq HTML_NAMESPACE_URI and
+				[ "table", "tbody", "tfoot", "thead", "tr" ]
+					.contains(current.tagName())
+			) {
+				_pending_table_character_tokens := [ token.data() ];
+				_original_insertion_mode := _insertion_mode;
+				self.switchTo("in table text");
+				return false;
+			}
+			self.parseError(
+				"unexpected-token-in-table",
+				"Unexpected characters in table",
+				token,
+			);
+			_foster_parenting := true;
+			let reprocess := self._mode_in_body(token);
+			_foster_parenting := false;
+			return reprocess;
 		}
 		if ( token.type() eq "Comment" ) {
 			self.insertComment(token);
@@ -2351,7 +2398,12 @@ class HTMLTreeBuilder {
 					return false;
 				}
 				data := substr(data, leading);
-				return self._mode_in_table(
+				// Anything else: pop the colgroup and reprocess the
+				// remaining characters in the "in table" mode.
+				return false unless self._current_node_is("colgroup");
+				self.popElement();
+				self.switchTo("in table");
+				return self._process_html_token(
 					new HTMLToken( _type: "Character", _data: data ),
 				);
 			}
@@ -2510,6 +2562,17 @@ class HTMLTreeBuilder {
 			token.type() eq "StartTag" and
 			_html_tb_table_cell_element(token.tagName())
 		) {
+			if (
+				not self.hasElementInTableScope("td") and
+				not self.hasElementInTableScope("th")
+			) {
+				self.parseError(
+					"cell-not-in-table-scope",
+					"Cell start tag with no open cell in table scope",
+					token,
+				);
+				return false;
+			}
 			if ( self._fragment_context_is_table_cell() ) {
 				self.parseError(
 					"ignored-cell-start-tag-in-cell-fragment",
@@ -2535,6 +2598,18 @@ class HTMLTreeBuilder {
 				self.parseError(
 					"ignored-end-tag-in-cell",
 					"Ignored " _ token.tagName() _ " end tag in cell",
+					token,
+				);
+				return false;
+			}
+			if (
+				token.type() eq "StartTag" and
+				not self.hasElementInTableScope("td") and
+				not self.hasElementInTableScope("th")
+			) {
+				self.parseError(
+					"cell-not-in-table-scope",
+					"Table section start tag with no open cell in scope",
 					token,
 				);
 				return false;
@@ -3169,6 +3244,20 @@ class HTMLTreeBuilder {
 		return reprocess;
 	}
 
+	method _is_special_element ( node ) {
+		return false unless node.nodeKind() eq "element";
+		let ns := node.namespaceURI();
+		if ( ns eq SVG_NAMESPACE_URI ) {
+			return [ "foreignObject", "desc", "title" ]
+				.contains(node.localName());
+		}
+		if ( ns eq MATHML_NAMESPACE_URI ) {
+			return [ "mi", "mo", "mn", "ms", "mtext", "annotation-xml" ]
+				.contains(node.localName());
+		}
+		return _html_tb_special_element(node.tagName());
+	}
+
 	method _adjusted_insertion_location () {
 		let target := self.currentNode();
 		let parent := target;
@@ -3181,7 +3270,16 @@ class HTMLTreeBuilder {
 			parent := target.content();
 		}
 
-		if ( _foster_parenting ) {
+		// Foster parenting only relocates the insertion point when the
+		// target itself is a table element; e.g. inside a MathML/SVG
+		// integration point the node stays where it is.
+		let foster_applies := _foster_parenting
+			and target.nodeKind() eq "element"
+			and [ "table", "tbody", "tfoot", "thead", "tr" ]
+				.contains(target.tagName())
+			and target.namespaceURI() eq HTML_NAMESPACE_URI;
+
+		if ( foster_applies ) {
 			let table_index := -1;
 			let template_index := -1;
 			let i := _open_elements.length() - 1;

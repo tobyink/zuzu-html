@@ -36,8 +36,17 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - Relaxed select parsing (unknown start tags use the in-body rules);
   foreign attribute namespace adjustment is restricted to SVG/MathML
   elements.
+- Foster parenting only relocates insertions when the target is a
+  table-section element, and "in table" only buffers characters when
+  the current node is one; foreign content end tags with no matching
+  foreign element fall through to the HTML rules; the adoption agency
+  and scope checks are namespace-aware (SVG/MathML integration points
+  are special elements and scope boundaries, except in table scope);
+  non-space characters after leading whitespace in a colgroup pop the
+  colgroup; td/th and section start tags in "in cell" respect table
+  scope (fixing an infinite reprocess loop).
 - html5lib tree-construction expected failures reduced from 1021 to
-  491.
+  423.
 
 ## 0.0.1 - 2026-06-10
 

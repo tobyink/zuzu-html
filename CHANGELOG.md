@@ -7,6 +7,10 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ## Unreleased
 
+### Changes
+
+- Split long-running test script into smaller chunks.
+
 ### Fixed
 
 - Script-data tokenizer: matched end tags now hand control back to the

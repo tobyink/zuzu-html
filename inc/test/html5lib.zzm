@@ -10,7 +10,7 @@ from test/more import *;
 
 requires_capability("fs");
 
-const DIST_ROOT      := __file__.parent.parent;
+const DIST_ROOT      := __file__.parent.parent.parent;
 const FIXTURE_ROOT   := DIST_ROOT.child( "tests/html5lib/tree-construction/" );
 const XFAIL_MANIFEST := DIST_ROOT.child( "tests/tree-construction-xfails.zzm" );
 
@@ -140,15 +140,14 @@ function _parse_fixture ( path ) {
 	return cases;
 }
 
-function _fixture_paths () {
-	let paths := [];
-	for ( let path in Path.glob(FIXTURE_ROOT _ "/*.dat") ) {
-		paths.push(path);
+function _fixture_path ( String fixture_name ) {
+	if ( index( fixture_name, ".." ) >= 0 ) {
+		die "Invalid html5lib fixture name: " _ fixture_name;
 	}
-	for ( let path in Path.glob(FIXTURE_ROOT _ "/scripted/*.dat") ) {
-		paths.push(path);
-	}
-	return paths.sort( fn ( a, b ) -> ( "" _ a ) cmp ( "" _ b ) );
+
+	let path := FIXTURE_ROOT.child( fixture_name _ ".dat" );
+	die "Unknown html5lib fixture: " _ fixture_name unless path.exists();
+	return path;
 }
 
 function _load_xfails () {
@@ -271,15 +270,15 @@ function _diag_unexpected_failure (
 	return true;
 }
 
-let xfails := _load_xfails();
-let parsed_cases := 0;
-let variants := 0;
-let xfailed_variants := 0;
-let todo_passes := 0;
-let error_count_mismatches := 0;
-let unexpected_failures := 0;
-
-for ( let path in _fixture_paths() ) {
+function run_dat_test ( String fixture_name ) {
+	let xfails := _load_xfails();
+	let parsed_cases := 0;
+	let variants := 0;
+	let xfailed_variants := 0;
+	let todo_passes := 0;
+	let error_count_mismatches := 0;
+	let unexpected_failures := 0;
+	let path := _fixture_path(fixture_name);
 	let cases := _parse_fixture(path);
 	parsed_cases += cases.length();
 	for ( let test_case in cases ) {
@@ -322,21 +321,21 @@ for ( let path in _fixture_paths() ) {
 			}
 		}
 	}
+
+	diag(
+		"html5lib tree-construction " _ fixture_name _ " variants: "
+			_ variants
+			_ "; parsed cases: "
+			_ parsed_cases
+			_ "; xfailed variants: "
+			_ xfailed_variants
+			_ "; TODO passes: "
+			_ todo_passes
+			_ "; parse-error-count mismatches: "
+			_ error_count_mismatches
+			_ "; unexpected failures: "
+			_ unexpected_failures,
+	);
+
+	done_testing();
 }
-
-diag(
-	"html5lib tree-construction variants: "
-		_ variants
-		_ "; parsed cases: "
-		_ parsed_cases
-		_ "; xfailed variants: "
-		_ xfailed_variants
-		_ "; TODO passes: "
-		_ todo_passes
-		_ "; parse-error-count mismatches: "
-		_ error_count_mismatches
-		_ "; unexpected failures: "
-		_ unexpected_failures,
-);
-
-done_testing();

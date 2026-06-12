@@ -1,0 +1,2 @@
+from test/html5lib import run_dat_test;
+run_dat_test("pending-spec-changes-plain-text-unsafe");

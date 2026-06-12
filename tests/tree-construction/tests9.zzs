@@ -1,2 +1,2 @@
 from test/html5lib import run_dat_test;
-run_dat_test("scriptdata01");
+run_dat_test("tests9");

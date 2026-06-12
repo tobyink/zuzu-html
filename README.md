@@ -8,8 +8,8 @@ The `html` distribution provides:
 - `html/dom`, a DOM-like tree API modelled on the practical surface of
   `std/data/xml`.
 - `html/tags`, shortcut functions for HTML generation.
-- Focused parser and DOM tests plus a committed html5lib tree-construction
-  harness.
+- Focused parser and DOM tests plus committed per-fixture html5lib
+  tree-construction tests.
 
 The parser follows the WHATWG HTML parsing algorithm where currently
 implemented, with remaining conformance gaps tracked in
@@ -275,14 +275,14 @@ Known differences are intentional:
 
 ## Intentional Limitations
 
-This release is marked `trial` in `zuzu-distribution.json`. The status is
-validator-supported and signals that the parser is usable but not yet a
-stable conformance claim.
+This release is marked `stable` in `zuzu-distribution.json`. The status
+reflects the supported API surface and current conformance baseline, not
+a claim of complete WHATWG HTML coverage.
 
 Known gaps:
 
 - The full html5lib tree-construction suite still has expected failures
-  listed in `tests/ree-construction-xfails.zzm`.
+  listed in `tests/tree-construction-xfails.zzm`.
 - Parse-error count and parse-error code parity are diagnostic only.
 - Script execution during parsing is not implemented.
 - `HTML.load` and `HTML.dump` are not implemented.
@@ -292,55 +292,44 @@ Known gaps:
 
 ## html5lib Coverage
 
-The committed harness is `tests/tree-construction.zzs`. It reads the
-vendored html5lib tree-construction fixtures and runs both scripting
-modes when a fixture does not specify one.
+The committed harness lives in `inc/test/html5lib.zzm`. Each vendored
+html5lib `.dat` file has a matching small test script under
+`tests/tree-construction/`, and compatibility wrappers remain for the
+older `tests/tree-construction-domjs.zzs` and
+`tests/tree-construction-scriptdata.zzs` entry points. The harness runs
+both scripting modes when a fixture does not specify one.
 
 Current claimed support level:
 
+- Fixture files: 60.
 - Parsed cases: 1,795.
 - Test variants: 3,551.
-- Passing non-xfailed variants: 2,531.
-- Expected-failure variants: 1,020.
+- Passing non-xfailed variants: 3,363.
+- Expected-failure variants: 188.
 - TODO passes: 0.
 - Unexpected failures: 0.
 - Parse-error-count mismatches: diagnostic only.
 
 ### Largest Unintentional Gaps Behind Expected Failures
 
-The current xfail manifest still uses broad reasons for many cases, but
-the largest failure clusters point to these implementation issues. Counts
-below are approximate variant counts from the current manifest, grouped
-by the dominant fixture files that expose each behaviour.
+The current xfail manifest is much smaller than earlier baselines, but
+the remaining entries still point to these implementation issues:
 
-1. Script-data tokenization edge cases, about 164 variants. The tokenizer
-   does not yet fully match the HTML script data, escaped script data,
-   incomplete end-tag, and EOF states. This shows up heavily in
-   `tests16.dat`, `scriptdata01.dat`, and `domjs-unsafe.dat`; examples
-   include preserving `</SCRIPT` as text at EOF and not prematurely
-   ending `<script>` when script text contains nested-looking tags.
-2. Root, head, body, and post-body insertion modes, about 148 variants.
-   Several edge cases around comments, stray end tags, misplaced
-   `title`, and content after `html`/`body` still use the wrong insertion
-   mode or reopen the wrong element. The biggest clusters are
-   `tests19.dat`, `tests1.dat`, `comments01.dat`, and `doctype01.dat`.
-3. Low-level character and token edge cases, about 140 variants. NULL
-   replacement/removal, carriage-return normalization, entity edge cases,
-   and unquoted attributes followed by a self-closing slash are not fully
-   spec-compatible. These failures are concentrated in
-   `plain-text-unsafe.dat`, `webkit02.dat`, `entities01.dat`, and
-   `entities02.dat`.
-4. Template interactions with special insertion modes, about 80 variants.
-   Template content works for the focused tests, but the full algorithm
-   for `template` inside `select`, table, head, and related insertion
-   modes is incomplete. The failures are concentrated in `template.dat`;
-   for example `<select><template></template></select>` currently drops
-   the expected template node.
-5. Ruby element autoclosing and scope rules, about 32 variants. The tree
-   builder does not yet implement the ruby-specific rules which close
-   `rb`, `rt`, `rtc`, and related elements at the right points. These are
-   tracked by `ruby.dat`; the current tree often nests the next ruby child
-   where html5lib expects a sibling.
+1. Tree-construction repair paths that combine foster parenting with the
+   adoption agency algorithm. These appear across the older numbered
+   html5lib fixtures, especially table and formatting-element recovery
+   cases.
+2. Reduced root, head, body, and after-body recovery logic. The parser
+   handles the common paths, but does not implement every insertion-mode
+   remap and node-relocation edge case.
+3. Template mode handoff for some `template.content`, `select`, and
+   nested-template transitions.
+4. Foreign-content namespace edge cases, including some SVG/MathML
+   namespace stack and case-normalisation behaviours.
+5. Quirks-mode doctype recovery and other small fixture-specific repair
+   cases.
+6. Scripted html5lib fixtures whose expected trees rely on live script
+   execution side effects.
 
 Expected failures are not skipped. They are run, compared, and reported
 as TODO failures by the TAP harness. If an expected failure starts
